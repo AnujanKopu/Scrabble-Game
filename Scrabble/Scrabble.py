@@ -1,7 +1,8 @@
 
 from pyglet.window.key import C, P
 from bag import Bag
-from board import Board,CurrentHand
+from copy import deepcopy
+from board import Board,CurrentHand,NotWordError
 from config import *
 from tiles import make_letters
 
@@ -27,8 +28,8 @@ class Tile(arcade.Sprite):
 
   def __init__(self,player,letter,args):
     super().__init__(filename=f'./Scrabble/tiles/{letter.name}.png',scale=1,**args)
-    self.player = player
-    self.letter = letter
+    #self.player = player
+    #$self.letter = letter
   
 
 
@@ -62,7 +63,7 @@ class Display(arcade.Window):
         self.mouseoffset = Coords()
   
 
-       
+        self.dict = dict()
     
     def get_pd_orientation(self,player):
       if player==1:return (SCREEN_WIDTH//2,SCREEN_HEIGHT*0.05,0)
@@ -97,7 +98,7 @@ class Display(arcade.Window):
           slot_x,slot_y = ((self.hand.held.center_x-(SCREEN_WIDTH//2 - GB_LEN//2))//(GB_LEN//15)),((self.hand.held.center_y-(SCREEN_HEIGHT//2 -GB_LEN//2))//(GB_LEN//15))
           if self.validate_slot(int(slot_x),int(slot_y)):
             self.hand.held.center_x,self.hand.held.center_y = (SCREEN_WIDTH//2 - GB_LEN//2-GB_LEN//30)+(slot_x+1)*(GB_LEN//15),(SCREEN_HEIGHT//2 -GB_LEN//2-GB_LEN//30)+(slot_y+1) *(GB_LEN//15)
-            board[int(slot_x)][int(slot_y)] = self.hand.held.letter.name
+            board[int(slot_x)][int(slot_y)] = self.hand.held.letter.name.lower()
             self.hand.selected.add((int(slot_x),int(slot_y))) 
             if self.hand.held_origin.x < (SCREEN_WIDTH//2 - GB_LEN//2) or self.hand.held_origin.x > (SCREEN_WIDTH//2 + GB_LEN//2) or self.hand.held_origin.y < (SCREEN_HEIGHT//2 -GB_LEN//2) or self.hand.held_origin.y > (SCREEN_HEIGHT//2 +GB_LEN//2):
               self.hand.empty_origin.append((self.hand.held_origin.x,self.hand.held_origin.y))
@@ -187,14 +188,14 @@ class Display(arcade.Window):
 
       pass
 
-      
+    
     def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
-      if button != 4:
+      if button == 1:
         tile = arcade.get_sprites_at_point((x+self.mouseoffset.x, y+self.mouseoffset.y), self.player_sprites[self.current_player])
         if len(tile) > 0:
           self.hand.held_origin.x,self.hand.held_origin.y = tile[0].center_x,tile[0].center_y
           self.hand.held = tile[0]
-          
+      
 
 
     def on_mouse_release(self, x: float, y: float, button: int, modifiers: int):
@@ -212,12 +213,8 @@ class Display(arcade.Window):
 
 
 
-def main():
+def start():
     make_letters(int(GB_LEN//16)+1)
     window = Display()
     window.setup()
     arcade.run()
-
-# Entrypoint to the program
-if __name__ == "__main__":
-    main()
