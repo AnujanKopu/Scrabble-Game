@@ -1,7 +1,3 @@
-
-
-
-
 def make_letters(resize_val):
   from PIL import Image
   from PIL import ImageFont

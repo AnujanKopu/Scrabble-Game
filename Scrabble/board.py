@@ -1,260 +1,354 @@
+import enum
+from re import X
+
+from arcade import SpriteList
+from bag import Character
 
 
-class NotWordError(Exception):
-  def __init__(self,value):
-    self.value = value
-    self.message = f"Characters at {value} not alligned with rest of the word"
-    super().__init__(self.message)
 
+HORIZONTAL = False
+VERTICAL = True
+
+class NonLinearWord(Exception):
+    def __init__(self):
+        super().__init__('Characters are not alligned in a linear format(no diagonal)')
+    
+
+class Slot():
+
+  def __init__(self,col:int,row:int):
+    self.col:int = col
+    self.row:int = row
+    
+
+  def __eq__(self,other):
+    return hash(self) == hash(other)
+    
+  def __hash__(self):
+    return hash((self.col,self.row))
+
+  def __str__(self):
+    return f"{self.col},{self.row}"
+
+
+class Word():
+
+  def __init__(self,col:int,row:int):
+    self.beg:Slot = Slot(col,row)
+    self.end:Slot = Slot(col,row)
+    self.characters:list[str] = []
+    self.value:int = 0
+    self.word_amp:int = 1
+
+  def __str__(self):
+      return "".join([i.name if i.name != "BLANK" else "_" for i in self.characters])
+
+
+class Play(): 
+
+  def __init__(self,x,y):
+    self.main_word:Word = Word(x,y)
+    self.chains:list[Word] = []
+
+  def get_points(self) -> int:
+    return self.main_word.value + sum([i.value for i in self.chains])
+
+
+class Amplifier(enum.Enum):
+    DOUBLEWORD = 1
+    TRIPLEWORD = 2
+    DOUBLELETTER = 3
+    TRIPLELETTER = 4
+
+class CharacterEvaluator():
+    modifier_map: dict = {
+      (1, 1): Amplifier(1), (2, 2): Amplifier(1), (3, 3): Amplifier(1), (4, 4): Amplifier(1), (13, 1): Amplifier(1), (12, 2): Amplifier(1), (11, 3): Amplifier(1), (10, 4): Amplifier(1), (10, 10): Amplifier(1), (11, 11): Amplifier(1), (12, 12): Amplifier(1), (13, 13): Amplifier(1), (4, 10): Amplifier(1), (3, 11): Amplifier(1), (2, 12): Amplifier(1), (1, 13): Amplifier(1),
+      (14, 0): Amplifier(2), (7, 0): Amplifier(2), (0, 0): Amplifier(2), (0, 7): Amplifier(2), (0, 14): Amplifier(2), (7, 14): Amplifier(2), (14, 14): Amplifier(2), (14, 7): Amplifier(2),
+      (11, 0): Amplifier(3), (8, 2): Amplifier(3), (7, 3): Amplifier(3), (6, 2): Amplifier(3), (3, 0): Amplifier(3), (0, 3): Amplifier(3), (14, 3): Amplifier(3), (12, 6): Amplifier(3), (8, 6): Amplifier(3), (6, 6): Amplifier(3), (2, 6): Amplifier(3), (3, 7): Amplifier(3), (11, 7): Amplifier(3), (12, 8): Amplifier(3), (8, 8): Amplifier(3), (6, 8): Amplifier(3), (2, 8): Amplifier(3), (0, 11): Amplifier(3), (14, 11): Amplifier(3), (7, 11): Amplifier(3), (8, 12): Amplifier(3), (6, 12): Amplifier(3), (11, 14): Amplifier(3), (3, 14): Amplifier(3),
+      (5, 1): Amplifier(4), (9, 1): Amplifier(4), (13, 5): Amplifier(4), (9, 5): Amplifier(4), (5, 5): Amplifier(4), (1, 5): Amplifier(4), (1, 9): Amplifier(4), (5, 9): Amplifier(4), (9, 9): Amplifier(4), (13, 9): Amplifier(4), (9, 13): Amplifier(4), (5, 13): Amplifier(4)
+      }
+    points_map:dict = {Character(0): 0,Character(1): 1, Character(5): 1, Character(9): 1, Character(12): 1, Character(14): 1, Character(15): 1, Character(18): 1, Character(19): 1, Character(20): 1, Character(21): 1, Character(4): 2, Character(7): 2, Character(2): 3, Character(3): 3, Character(13): 3, Character(16): 3, Character(6): 4, Character(8): 4, Character(22): 4, Character(23): 4, Character(25): 4, Character(11): 5, Character(10): 8, Character(24): 8, Character(17): 10, Character(26): 10}
+    
+    def __init__(self) -> None:
+      self.first_play = True
+
+    def get_word_points(self,col:int,row:int,letter:Character)-> tuple:
+        if self.first_play is True:
+            self.first_play == False
+            return (2,self.points_map[letter]) 
+        if (col,row) in self.modifier_map: 
+            amplifer = self.modifier_map[(col,row)]
+            if amplifer.value == 1: return (2,self.points_map[letter])
+            elif amplifer.value == 2: return (3,self.points_map[letter])
+            elif amplifer.value == 3: return (1,2*self.points_map[letter])
+            elif amplifer.value == 3: return (1,3*self.points_map[letter])
 
 class Coords():
-  x = 0
-  y = 0
+    def __init__(self,x=0,y=0):
+        self.x:float = x
+        self.y:float = y
+
 
 class CurrentHand():
-  selected = set()
-  held = None
-  held_origin = Coords()
-  empty_origin = []
+  def __init__(self):
+    self.selected:set[Slot] = set()
+    self.empty_origin:list[Coords] = []
+    self.held = None
+    self.held_origin:Coords = Coords()
 
 class Board():
-  def __init__(self,board):
-    self.board = board
-    self.modifer_map = {
-      (1, 1): 'DW', (2, 2): 'DW', (3, 3): 'DW', (4, 4): 'DW', (13, 1): 'DW', (12, 2): 'DW', (11, 3): 'DW', (10, 4): 'DW', (10, 10): 'DW', (11, 11): 'DW', (12, 12): 'DW', (13, 13): 'DW', (4, 10): 'DW', (3, 11): 'DW', (2, 12): 'DW', (1, 13): 'DW',
-      (14, 0): 'TW', (7, 0): 'TW', (0, 0): 'TW', (0, 7): 'TW', (0, 14): 'TW', (7, 14): 'TW', (14, 14): 'TW', (14, 7): 'TW',
-      (11, 0): 'DL', (8, 2): 'DL', (7, 3): 'DL', (6, 2): 'DL', (3, 0): 'DL', (0, 3): 'DL', (14, 3): 'DL', (12, 6): 'DL', (8, 6): 'DL', (6, 6): 'DL', (2, 6): 'DL', (3, 7): 'DL', (11, 7): 'DL', (12, 8): 'DL', (8, 8): 'DL', (6, 8): 'DL', (2, 8): 'DL', (0, 11): 'DL', (14, 11): 'DL', (7, 11): 'DL', (8, 12): 'DL', (6, 12): 'DL', (11, 14): 'DL', (3, 14): 'DL',
-      (5, 1): 'TL', (9, 1): 'TL', (13, 5): 'TL', (9, 5): 'TL', (5, 5): 'TL', (1, 5): 'TL', (1, 9): 'TL', (5, 9): 'TL', (9, 9): 'TL', (13, 9): 'TL', (9, 13): 'TL', (5, 13): 'TL'
-      }
-    self.points_map = {'a': 1, 'e': 1, 'i': 1, 'l': 1, 'n': 1, 'o': 1, 'r': 1, 's': 1, 't': 1, 'u': 1, 'd': 2, 'g': 2, 'b': 3, 'c': 3, 'm': 3, 'p': 3, 'f': 4, 'h': 4, 'v': 4, 'w': 4, 'y': 4, 'k': 5, 'j': 8, 'x': 8, 'q': 10, 'z': 10}
-    self.word_map = set()
+    def __init__(self) -> None:
+      self.board: list = [[None for i in range(15)] for i in range(15)]
+      self.board_tiles:SpriteList = SpriteList()
+      self.coord_map:set[tuple[Slot]] = set()
+      self.charcter_evaluator: CharacterEvaluator = CharacterEvaluator()
 
-    
-  def get_words(self,selected:set):#Provide DeepCopy Selected. 
-    class Word():
-      word:str = ''
-      beg:tuple 
-      end:tuple 
-      value:int = 0
-      word_amp:int = 1
-      letter_amp:int = 0
- 
-      def get_value(self):
-        return (self.value + self.letter_amp)*self.word_amp
+    def add_tiles(self,tiles:SpriteList):
+      self.board_tiles.extend(tiles)
 
+    def place_on_board(self,col:int,row:int,character:Character)-> None:
+        self.board[col][row] = character
+        
+    def swap_on_board(self,col1:int,row1:int,col2:int,row2:int)->None:
+        self.board[col1][row1],self.board[col2][row2] = self.board[col2][row2],self.board[col1][row1] 
 
+    def slot_used(self,col,row):
+      return True if not self.board[col][row] is None else False
 
-    class Result():
-      main_word:Word = Word()
-      chains:list = []
-    
-
-    #Need to do comparison between two tuples to find main direction
-    a,b = selected.pop(),selected.pop()
-    if(a[0] == b[0]) ^ (a[1] == b[1]):
-        selected.update([b,a])
-        result = Result()
-        y,x = a[0],a[1]
-        temp = Word()
+    def validate_slot(self,col,row,beside_itself=False)->None:
+      number_of_tiles_needed = 1 if beside_itself is False else 2
+      if self.board[7][7] is None: return True if col == 7 and row == 7 else False 
+      for x,y in ((0,1),(1,0),(0,-1),(-1,0)):
+        if col+x >= 0 and col+x < 15 and row+y >= 0 and row+y < 15:
+          if not self.board[col+x][row+y] is None: 
+              number_of_tiles_needed -= 1
+              if number_of_tiles_needed == 0: return True
+      return False
 
 
-        #Depending on direction, find chaining words in other axis. 
-        if a[0] == b[0]:
+    def get_main_direction(self,first_tile_coords:Slot,second_tile_coords:Slot)-> bool:
+        if (first_tile_coords.col ==second_tile_coords.col) ^ (first_tile_coords.row==second_tile_coords.row):
+            if first_tile_coords.col==second_tile_coords.col: return VERTICAL
+            elif first_tile_coords.row==second_tile_coords.row: return HORIZONTAL
+            else: return None
+
+    def add(self,col:int,row:int,word:Word)-> None:
+        word.characters.append(self.board[col][row])
+        word_amp,points = self.charcter_evaluator.get_word_points(col,row,word.characters[-1]) 
+        word.word_amp *= word_amp
+        word.value += points
+        pass
+
+    def addleft(self,col:int,row:int,word:Word) -> None:
+        word.characters.insert(0,self.board[col][row])
+        word_amp,points = self.charcter_evaluator.get_word_points(col,row,word.characters[0]) 
+        word.word_amp *= word_amp
+        word.value += points
+        pass
+
+    def get_words(self,selected_copy:set,direction:bool,y:int,x:int)-> Play: #x,y of a random position of the word as a pivot point
+        result = Play(y,x)
+
+        #If main direction is horizontal, iterate to the left and right, and down and bottom of the characters of left and right.
+        #-Gather all words and append it to the Result object. left-right characters go into Main Word, down-top characters make words go into chains[list]
+        if direction is True:
+          #print('1')
           for i in range(x,-1,-1):
+            #print('2')
             
-                
             if self.board[y][i] is None: 
-              result.main_word.beg = (y,i+1)
+              result.main_word.beg = Slot(y,i+1)
               break
             if i == 0:
-              result.main_word.beg = (y,i)
+              result.main_word.beg = Slot(y,i)
             
-            result.main_word.word = self.board[y][i] + result.main_word.word
-            self.evaluate_points(result.main_word,(y,i))
+            #print('here')
+            self.add(y,i,result.main_word)
               
-
-            if (y,i) in selected:
-
+            #print('1:',(y,i))
+            if (y,i) in selected_copy:
+              temp = Word(y,i)
+              
               for j in range(y-1,-1,-1):
+                
                 if self.board[j][i] is None: 
-                  temp.beg = (j+1,i)
+                  temp.beg = Slot(j+1,i)
                   break
                 if j == 0:
-                  temp.beg = (j,i)
-                temp.word = self.board[j][i] + temp.word
-                self.evaluate_points(temp,(j,i))
+                  temp.beg = Slot(j,i)
+                self.add(j,i,temp)
+              
 
               for j in range(y,len(self.board)):
                 if self.board[j][i] is None: 
-                  temp.end = (j-1,i)
+                  temp.end = Slot(j-1,i)
                   break
                 if j == len(self.board)-1:
-                  temp.end = (j,i)
-                temp.word += self.board[j][i]
-                self.evaluate_points(temp,(j,i))
+                  temp.end = Slot(j,i)
+                self.addleft(j,i,temp)
+               
                 
 
-              if temp.word: 
-                if (temp.word.beg,temp.word.end) not in self.word_map:
+              if len(temp.characters) > 1: 
+                if (temp.beg,temp.end) not in self.coord_map:
                   result.chains.append(temp)
-                  self.word_map.add((temp.word.beg,temp.word.end))
+                  self.coord_map.add((temp.beg,temp.end))
 
-                temp = Word()
-              selected.remove((y,i))
+              #print((y,i))
+              selected_copy.remove((y,i))
 
+          #print('3')
           for i in range(x+1,len(self.board[y])):
-            
+            #print('4')
             if self.board[y][i] is None: 
-              result.main_word.end = (y,i-1)
+              result.main_word.end = Slot(y,i-1)
               break
             if i == len(self.board)-1:
-              result.main_word.end = (y,i)
+              result.main_word.end = Slot(y,i)
           
-            result.main_word.word += self.board[y][i]
-            self.evaluate_points(result.main_word,(y,i))
-
-            if (y,i) in selected:
-
+            #print('here2')
+            self.addleft(y,i,result.main_word)
+          
+            #print('2:',(y,i))
+            if (y,i) in selected_copy:
+              temp = Word(y,i)
               for j in range(y-1,-1,-1):
                 if self.board[j][i] is None: 
-                  temp.beg = (j+1,i)
+                  temp.beg = Slot(j+1,i)
                   break
                 if j == 0:
-                  temp.beg = (j,i)
-                temp.word = self.board[j][i] + temp.word
-                self.evaluate_points(temp,(j,i))
+                  temp.beg = Slot(j,i)
+                self.add(j,i,temp) 
 
 
+         
               for j in range(y,len(self.board)):
                 if self.board[j][i] is None: 
-                  temp.end = (j-1,i)
+                  temp.end = Slot(j-1,i)
                   break
                 if j == len(self.board)-1:
-                  temp.end = (j,i)
-                temp.word += self.board[j][i]
-                self.evaluate_points(temp,(j,i))
+                  temp.end = Slot(j,i)
+                self.addleft(j,i,temp)
 
 
-              if temp.word: 
-                if (temp.word.beg,temp.word.end) not in self.word_map:
+
+              if len(temp.characters) > 1: 
+                if (temp.beg,temp.end) not in self.coord_map:
                   result.chains.append(temp)
-                  self.word_map.add((temp.word.beg,temp.word.end))
-                temp = Word()
-              selected.remove((y,i))
+                  self.coord_map.add((temp.beg,temp.end))
+              
+              #print((y,i))
+              selected_copy.remove((y,i))
 
         else:
-
           for i in range(y+1,len(self.board)):
             if self.board[i][x] is None: 
-              result.main_word.end = (i-1,x)
+              result.main_word.end = Slot(i-1,x)
               break
             if i == len(self.board)-1:
-              result.main_word.end = (i,x)
+              result.main_word.end = Slot(i,x)
               
-            result.main_word.word += self.board[i][x]
-            self.evaluate_points(result.main_word,(i,x))
+            self.add(i,x,result.main_word)
 
 
-            if (i,x) in selected:
+            #print('3:',(i,x))
+            if (i,x) in selected_copy:
+              temp = Word(i,x)
               for j in range(x+1,len(self.board[i])):
                   if self.board[i][j] is None:
-                      temp.end = (i,j-1)
+                      temp.end = Slot(i,j-1)
                       break
                   if j ==len(self.board[i])-1:
-                      temp.end = (i,j)
-                  temp.word += self.board[i][j]
-                  self.evaluate_points(temp,(i,j))
+                      temp.end = Slot(i,j)
+                  self.addleft(i,j,temp)
+  
                   
 
 
               for j in range(x,-1,-1):
                   if self.board[i][j] is None:
-                      temp.beg = (i,j+1)
+                      temp.beg = Slot(i,j+1)
                       break
                   if j == 0:
-                      temp.beg = (i,j) 
-                  temp.word = self.board[i][j] + temp.word
-                  self.evaluate_points(temp,(i,j))
+                      temp.beg = Slot(i,j) 
+                  self.add(i,j,temp)
 
-              if temp.word: 
-                if (temp.word.beg,temp.word.end) not in self.word_map:
+
+              if len(temp.characters) > 1: 
+                if (temp.beg,temp.end) not in self.coord_map:
                   result.chains.append(temp)
-                  self.word_map.add((temp.word.beg,temp.word.end))
-                temp = Word()
-              selected.remove((i,x))
+                  self.coord_map.add((temp.beg,temp.end))
+              
+              #print((i,x))
+              selected_copy.remove((i,x))
 
 
           for i in range(y,-1,-1):
             if self.board[i][x] is None: 
-              temp.beg = (i+1,x)
+              result.main_word.beg = Slot(i+1,x)
               break
             if i == 0:
-              temp.beg = (i,x)
+              result.main_word.beg = Slot(i,x)
               
-            result.main_word.word = self.board[i][x] +  result.main_word.word
-            self.evaluate_points(result.main_word,(i,x))
-            
+            self.addleft(i,x,result.main_word) 
 
-            if (i,x) in selected:
+            
+            #print('3:',(i,x))
+            if (i,x) in selected_copy:
+              temp = Word(i,x)
               for j in range(x+1,len(self.board[i])):
                   if self.board[i][j] is None:
-                      temp.end = (i,j-1)
+                      temp.end = Slot(i,j-1)
                       break
                   if j ==len(self.board[i])-1:
-                      temp.end = (i,j)
+                      temp.end = Slot(i,j)
                   
-                  temp.word += self.board[i][j]
-                  self.evaluate_points(temp,(i,j))
+                  self.addleft(i,j,temp)
+
 
               for j in range(x,-1,-1):
                   if self.board[i][j] is None:
-                      temp.beg = (i,j+1)
+                      temp.beg = Slot(i,j+1)
                       break
                   if j == 0:
-                      temp.beg = (i,j) 
+                      temp.beg = Slot(i,j) 
                       
-                  temp.word = self.board[i][j] + temp.word
-                  self.evaluate_points(temp,(i,j))
+                  self.add(i,j,temp)
+
                   
               
-              if temp.word: 
-                if (temp.word.beg,temp.word.end) not in self.word_map:
+              if len(temp.characters) > 1: 
+                if (temp.beg,temp.end) not in self.coord_map:
                   result.chains.append(temp)
-                  self.word_map.add((temp.word.beg,temp.word.end))
+                  self.coord_map.add((temp.beg,temp.end))
 
-                temp = Word()
-              selected.remove((i,x))
-
-
-        if len(selected):
-          raise NotWordError(selected)
-        else:
-          #return result
-          print(result.main_word.word)
-          for word in result.chains:
-            print(word.word,word.beg,word.end)
-    else:
-      raise NotWordError()
-
-
-  def evaluate_points(self,word,coords:tuple):
-    word.value += self.points_map[coords[0]][coords[1]]
-    if coords in self.modifer_map:
-      if self.modifer_map[coords] == 'DW':
-        word.word_amp *= 2
-      elif self.modifer_map[coords] == 'TW':
-        word.word_amp *= 3
-      elif self.modifer_map[coords] == 'DL':
-        word.letter_amp += self.points_map[self.board[coords[0]][coords[1]]]
-      elif  self.modifer_map[coords] == 'TL':
-        word.letter_amp += self.points_map[self.board[coords[0]][coords[1]]]*2
-
+              #print((i,x))
+              selected_copy.remove((i,x))
+        return result
 
   
-        
+    """
+    def clean_words(self,words:Play):
+      i = 0
+      while i < len(words.chains):
+        if len(words.chains[i].characters) == 1:
+            words.chains.pop(i)
+            #self.coord_map.remove((words.chains[i].beg,words.chains[i].end))
+        else:
+            i+=1 
+      return words
+    """
 
-        
+    def evaluate_play(self,selected_copy:set[Slot])->Play:
+        a,b = selected_copy.pop(),selected_copy.pop()
+        selected_copy.update([b,a])
+
+        direction = self.get_main_direction(a,b)
+        if direction is None: raise NonLinearWord
+
+        words = self.get_words(selected_copy,direction,a.col,a.row)
+        if len(selected_copy) != 0:raise NonLinearWord
+        return words
 
 
-    
 
