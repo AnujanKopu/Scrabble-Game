@@ -1,10 +1,13 @@
+from tkinter import font
 from bag import Bag
 from board import (
     Board,
     Coords,
     CurrentHand,
     NonLinearWord,
-    Slot
+    Slot,
+    Word,
+    Play
 )
 from config import *
 from cycler import MyCycler
@@ -36,7 +39,8 @@ from arcade.gui import (
   UIFlatButton,
   UIBoxLayout,
   UILabel,
-  UIInputText
+  UIInputText,
+  UIMessageBox
 )
 from arcade.gui.events import UIMousePressEvent,UITextEvent
 from pyglet.event import EVENT_UNHANDLED,EVENT_HANDLED
@@ -48,9 +52,11 @@ ACTIVE,UNACTIVE = True,False
 class GameState(IntEnum):
   Title = 0
   Setup = 1
-  Game = 2
-  Settings = 3
-  Stats = 4
+  Setup2 = 2
+  Game = 3
+  GameFinished = 4
+  Settings = 5
+  Stats = 6
 
 
 class UIWidgets(NamedTuple):
@@ -149,7 +155,16 @@ class Menu(ABC):
         return 0
 
 
+class ToBeImplementedMenu(Menu):
+    box_x:str = 'center'
+    box_y:str = 'center'
+    background_colour: arcade.color = arcade.color.DARK_YELLOW
 
+    def draw(self):
+        pass
+
+    def get_ui_widgets(self) -> UIWidgets:
+        return UIWidgets(reg_widgets=[UILabel(text=f"{__class__.__name__} to be Implemented",font_name=('Open Sans',),font_size=((SCREEN_WIDTH*(4/5))/len(f"{__class__.__name__} to be Implemented")),italic=True,bold=True,text_color=(0,0,0,255)).with_space_around(bottom=SCREEN_WIDTH//7)],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
 
 class SelectionMenu(Menu):
     box_x: str = 'center'
@@ -176,7 +191,7 @@ class SelectionMenu(Menu):
         exit_button =  UIFlatButton(text="Exit", width=SCREEN_WIDTH//5)
         
         
-        return UIWidgets(reg_widgets=[scrabble_title],change_state_buttons=[(start_button,1),(settings_button,4),(stat_button,5)],exit_button=exit_button)
+        return UIWidgets(reg_widgets=[scrabble_title],change_state_buttons=[(start_button,1),(settings_button,5),(stat_button,6)],exit_button=exit_button)
         
 
 
@@ -295,8 +310,8 @@ class SetupMenu2(Menu):
 
 
 class GameMenu(Menu):
-    box_x:str = 'left'
-    box_y:str = 'bottom'
+    box_x:str = 'center'
+    box_y:str = 'center'
     state:IntEnum = GameState(3)
     background_colour: arcade.color = arcade.color.RED_DEVIL
 
@@ -306,41 +321,58 @@ class GameMenu(Menu):
         self.bag:Bag = Bag(1 if len(players) != 4 else 2)
         self.board:Board = Board()  
         self.hand:CurrentHand = CurrentHand()
-        self.mouseoffset:Coords = Coords()
+        self.screenoffset:Coords = Coords()
+        self.points_to_win = 20
 
         self.players:list[Player] = [Player(players[j],self.create_sprite_list(j,len(players))) for j in range(len(players))] 
         self.cycler:MyCycler =  MyCycler(self.players)
         self.current_player:int = self.cycler.get_first_player(self.players)
 
-
+        self.center:UIBoxLayout = UIBoxLayout()
     
         self.placed:list[tuple[float,float,float,float]] = []
         self.s:bool = ACTIVE
         self.p:bool = ACTIVE
-        self.c:bool = ACTIVE
+        self.c:bool = UNACTIVE
         self.error:bool = UNACTIVE
-        self.reset:bool = False
+        self.challenged:bool = UNACTIVE
+        self.move_freeze:bool = UNACTIVE
+
+        
+        self.event_reset:Play = None
+        self.event_end_game:bool = False
 
     def draw(self):
       self.draw_gameboard()
-      self.draw_playerdeck(*self.get_pd_orientation(1,len(self.players)))
-      self.draw_playerdeck(*self.get_pd_orientation(2,len(self.players))) 
-      if len(self.players) >= 3: self.draw_playerdeck(*self.get_pd_orientation(3,len(self.players)))
-      if len(self.players) == 4: self.draw_playerdeck(*self.get_pd_orientation(4,len(self.players)))
+      self.draw_playerdeck(*self.get_pd_orientation(0,len(self.players)))
+      self.draw_playerdeck(*self.get_pd_orientation(1,len(self.players))) 
+      if len(self.players) >= 3: self.draw_playerdeck(*self.get_pd_orientation(2,len(self.players)))
+      if len(self.players) == 4: self.draw_playerdeck(*self.get_pd_orientation(3,len(self.players)))
       self.draw_sprites()
       if self.placed: self.draw_outline_of_chains()
       self.draw_placed_tile_outline()
         
     def get_ui_widgets(self) -> UIWidgets:
-        return UIWidgets(reg_widgets=[],change_state_buttons=[])
+        return UIWidgets(reg_widgets=[self.center],change_state_buttons=[])
         pass 
 
 
-    def on_update(self,delta_time:float):
-        if self.reset is True: 
-            self.reset = False
-            self.progress_game()
+    def get_next_stage_info(self):
+        return (self.players[self.current_player].name,self.players[self.current_player].points)
 
+    def on_update(self,delta_time:float):
+        if self.challenged is False and self.event_reset: 
+            temp = self.event_reset
+            self.event_reset = None
+            self.c = UNACTIVE
+            text = f"{self.players[self.current_player].name} has scored: {temp.get_points()} Points\nPlayer main word: {temp.main_word}={temp.main_word.value*temp.main_word.word_amp}P \n\nPlayer chain words:\n     "+"".join([f'{i}={i.value*i.word_amp}P,\n     ' for i in temp.chains])
+            self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=text,callback=lambda text: self.progress_game(temp)))
+            return ('center',)
+
+        elif self.event_end_game is True: return ('change_state',4,self.get_next_stage_info())
+            
+
+    
 
     def on_key_press(self, symbol: int, modifiers: int):
         if self.p is ACTIVE and symbol == KEY_P:
@@ -353,19 +385,22 @@ class GameMenu(Menu):
             pass
 
     def on_mouse_drag(self, x: float, y: float, dx: float, dy: float, button: int, modifiers: int):
+        if self.move_freeze is ACTIVE: return
         if button == 1 and not self.hand.held is None:
               self.hand.held.center_x += dx
               self.hand.held.center_y += dy
         return 1
 
     def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
+        if self.move_freeze is ACTIVE: return
         if button == 1:
-            tile = arcade.get_sprites_at_point((x+self.mouseoffset.x, y+self.mouseoffset.y), self.players[self.current_player].sprites)
+            tile = arcade.get_sprites_at_point((x+self.screenoffset.x, y+self.screenoffset.y), self.players[self.current_player].sprites)
             if len(tile) > 0:
                 self.hand.held_origin.x,self.hand.held_origin.y = tile[0].center_x,tile[0].center_y
                 self.hand.held = tile[0]
     
     def on_mouse_release(self, x: float, y: float, button: int, modifiers: int):
+        if self.move_freeze is ACTIVE: return
         if button ==1 and self.hand.held:
             self.check_released_slot()
             self.hand.held = None
@@ -386,10 +421,9 @@ class GameMenu(Menu):
             t.start()
             return 
   
-        t = Thread(target=lambda words=words:self.create_placed_indicator(([(i.beg,i.end) for i in words.chains]+[(words.main_word.beg,words.main_word.end)])))
+        t = Thread(target=lambda :self.create_placed_indicator(words))
         t.start()
-        #self.progress_game() 
-        #t = Thread(target=self.create_placed_indicator([(i.beg,i.end) for i in words.chains]))
+
 
 
     def check_released_slot(self):
@@ -493,22 +527,22 @@ class GameMenu(Menu):
     #Dimensions to create player_deck
     @staticmethod
     def get_pd_orientation(player,numofplayers):
-      if player==1:return (SCREEN_WIDTH//2,SCREEN_HEIGHT*0.05,0)
-      elif player==2:return (SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,0) if numofplayers < 3 else (SCREEN_WIDTH*0.05,SCREEN_HEIGHT//2,90)
-      elif player==3:return (SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,0)
-      elif player==4:return (SCREEN_WIDTH*0.95,SCREEN_HEIGHT//2,90)
+      if player==0:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.05,0,SCREEN_WIDTH//2-(PD_LENGTH/2),(SCREEN_HEIGHT*0.05)+GB_LEN/25)
+      elif player==1:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,180,SCREEN_WIDTH//2+(PD_LENGTH/2),(SCREEN_HEIGHT*0.95)-GB_LEN/25) if numofplayers < 3 else (player,SCREEN_WIDTH*0.05,SCREEN_HEIGHT//2,270,(SCREEN_WIDTH*0.05)+GB_LEN//25,SCREEN_HEIGHT//2+(PD_LENGTH/2))
+      elif player==2:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,180,SCREEN_WIDTH//2+(PD_LENGTH/2),(SCREEN_HEIGHT*0.95)-GB_LEN/25)
+      elif player==3:return (player,SCREEN_WIDTH*0.95,SCREEN_HEIGHT//2,90,(SCREEN_WIDTH*0.95)-GB_LEN/25,SCREEN_HEIGHT//2-(PD_LENGTH/2))
 
     
     def draw_gameboard(self):
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,GB_LEN, GB_LEN, GB)
 
-    def draw_playerdeck(self,center_x,center_y,angle):
+    def draw_playerdeck(self,player,center_x,center_y,angle,text_center_x,text_center_y):
         arcade.draw_rectangle_filled(center_x,center_y,PD_LENGTH,PD_HEIGHT,(168, 112, 66),tilt_angle=angle)
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH,PD_HEIGHT,(255,255,255), tilt_angle=angle)
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH-(PD_HEIGHT*2),PD_HEIGHT,(255,255,255),tilt_angle=angle)
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH-(PD_HEIGHT*4),PD_HEIGHT,(255,255,255),tilt_angle=angle)
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH-(PD_HEIGHT*6),PD_HEIGHT,(255,255,255),tilt_angle=angle)
-
+        arcade.draw_text(f"{self.players[player].name}:{self.players[player].points}",text_center_x,text_center_y,(255,255,255) if player != self.current_player else (57, 255, 20),font_size=SCREEN_HEIGHT//45,font_name=('Open Sans',),bold=True,rotation=angle)
 
     def draw_sprites(self):
         self.board.board_tiles.draw()
@@ -564,10 +598,10 @@ class GameMenu(Menu):
 
     def WordIsNotLinear(self):
         self.error = ACTIVE
-        self.p = self.c = self.s = UNACTIVE
+        self.p = self.s = UNACTIVE
         sleep(3.5)
         self.error = UNACTIVE
-        self.p = self.c = self.s = ACTIVE
+        self.p = self.s = ACTIVE
 
 
     
@@ -586,20 +620,20 @@ class GameMenu(Menu):
         return arr
 
     def create_placed_indicator(self,words:list):
+        self.move_freeze = ACTIVE
         self.p = self.s = UNACTIVE
         self.c = ACTIVE
-        self.placed = self.create_placed_gridline(words)
-        sleep(7)
+        self.placed = self.create_placed_gridline(([(i.beg,i.end) for i in words.chains]+[(words.main_word.beg,words.main_word.end)]))
+        sleep(6)
         self.placed.clear()
-        self.reset = True
-        self.p = self.s = ACTIVE
-        self.c = UNACTIVE
+        self.event_reset = words
 
 
-    def make_sprite(self,empty_origin:Coords):
+
+    def make_sprite(self,empty_origin:Coords)-> Tile:
         return Tile(self.bag.grab_next(),{'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':empty_origin.x,'center_y':empty_origin.y,'angle':self.get_tilt_angle(self.current_player,len(self.players))})
 
-    def reset_play(self):
+    def reset_play(self)->None:
         self.hand.selected.clear()
         board_tiles = arcade.SpriteList()
         i = 0
@@ -612,13 +646,47 @@ class GameMenu(Menu):
         while self.hand.empty_origin:
             self.players[self.current_player].sprites.append(self.make_sprite(self.hand.empty_origin.pop()))
 
-    def progress_game(self,words):
+    def progress_game(self,words:Play):
         self.reset_play()
+        self.players[self.current_player].points += words.get_points()
+        self.players[self.current_player].words.append(words)
 
+        if self.players[self.current_player].points >= self.points_to_win: 
+            self.event_end_game = True
+            return
+
+        self.current_player = self.cycler.next_player()
+        self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/5,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}'))
+        self.p = self.s = ACTIVE
+        self.move_freeze = UNACTIVE
 
 
         
+class GameFinishedMenu(Menu):
+    box_x:str = 'center'
+    box_y:str = 'center'
+    state:IntEnum = GameState(4)
+    background_colour: arcade.color = arcade.color.CYAN
+
+    def __init__(self,player_name,player_points):
+        self.player_name = player_name
+        self.player_points = player_points
+
+    def draw(self):
+        pass
+
+    def get_ui_widgets(self) -> UIWidgets:
+        
+        return UIWidgets(reg_widgets=[UILabel(text=f"{self.player_name} has won the game with {self.player_points}",font_name=('Open Sans',),font_size=((SCREEN_WIDTH*(2/3))/len(f"{self.player_name} has won the game with {self.player_points}")),italic=True,bold=True,text_color=(0,0,0,255)).with_space_around(bottom=SCREEN_WIDTH//7)],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
+
+class SettingsMenu(ToBeImplementedMenu):
+    pass
+
+class StatsMenu(ToBeImplementedMenu):
+    pass
 
 
-Menus = (SelectionMenu,SetupMenu1,SetupMenu2,GameMenu)
+
+
+Menus = (SelectionMenu,SetupMenu1,SetupMenu2,GameMenu,GameFinishedMenu,SettingsMenu,StatsMenu)
 

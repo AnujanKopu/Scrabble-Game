@@ -1,5 +1,4 @@
 import enum
-from re import X
 
 from arcade import SpriteList
 from bag import Character
@@ -51,7 +50,8 @@ class Play():
     self.chains:list[Word] = []
 
   def get_points(self) -> int:
-    return self.main_word.value + sum([i.value for i in self.chains])
+    print(self.main_word.value*self.main_word.word_amp,sum([i.value*i.word_amp for i in self.chains]))
+    return self.main_word.value*self.main_word.word_amp + sum([i.value*i.word_amp for i in self.chains])
 
 
 class Amplifier(enum.Enum):
@@ -61,27 +61,35 @@ class Amplifier(enum.Enum):
     TRIPLELETTER = 4
 
 class CharacterEvaluator():
-    modifier_map: dict = {
-      (1, 1): Amplifier(1), (2, 2): Amplifier(1), (3, 3): Amplifier(1), (4, 4): Amplifier(1), (13, 1): Amplifier(1), (12, 2): Amplifier(1), (11, 3): Amplifier(1), (10, 4): Amplifier(1), (10, 10): Amplifier(1), (11, 11): Amplifier(1), (12, 12): Amplifier(1), (13, 13): Amplifier(1), (4, 10): Amplifier(1), (3, 11): Amplifier(1), (2, 12): Amplifier(1), (1, 13): Amplifier(1),
-      (14, 0): Amplifier(2), (7, 0): Amplifier(2), (0, 0): Amplifier(2), (0, 7): Amplifier(2), (0, 14): Amplifier(2), (7, 14): Amplifier(2), (14, 14): Amplifier(2), (14, 7): Amplifier(2),
-      (11, 0): Amplifier(3), (8, 2): Amplifier(3), (7, 3): Amplifier(3), (6, 2): Amplifier(3), (3, 0): Amplifier(3), (0, 3): Amplifier(3), (14, 3): Amplifier(3), (12, 6): Amplifier(3), (8, 6): Amplifier(3), (6, 6): Amplifier(3), (2, 6): Amplifier(3), (3, 7): Amplifier(3), (11, 7): Amplifier(3), (12, 8): Amplifier(3), (8, 8): Amplifier(3), (6, 8): Amplifier(3), (2, 8): Amplifier(3), (0, 11): Amplifier(3), (14, 11): Amplifier(3), (7, 11): Amplifier(3), (8, 12): Amplifier(3), (6, 12): Amplifier(3), (11, 14): Amplifier(3), (3, 14): Amplifier(3),
-      (5, 1): Amplifier(4), (9, 1): Amplifier(4), (13, 5): Amplifier(4), (9, 5): Amplifier(4), (5, 5): Amplifier(4), (1, 5): Amplifier(4), (1, 9): Amplifier(4), (5, 9): Amplifier(4), (9, 9): Amplifier(4), (13, 9): Amplifier(4), (9, 13): Amplifier(4), (5, 13): Amplifier(4)
-      }
     points_map:dict = {Character(0): 0,Character(1): 1, Character(5): 1, Character(9): 1, Character(12): 1, Character(14): 1, Character(15): 1, Character(18): 1, Character(19): 1, Character(20): 1, Character(21): 1, Character(4): 2, Character(7): 2, Character(2): 3, Character(3): 3, Character(13): 3, Character(16): 3, Character(6): 4, Character(8): 4, Character(22): 4, Character(23): 4, Character(25): 4, Character(11): 5, Character(10): 8, Character(24): 8, Character(17): 10, Character(26): 10}
     
     def __init__(self) -> None:
       self.first_play = True
+      self.modifier_map: dict = {
+        (1, 1): Amplifier(1), (2, 2): Amplifier(1), (3, 3): Amplifier(1), (4, 4): Amplifier(1), (13, 1): Amplifier(1), (12, 2): Amplifier(1), (11, 3): Amplifier(1), (10, 4): Amplifier(1), (10, 10): Amplifier(1), (11, 11): Amplifier(1), (12, 12): Amplifier(1), (13, 13): Amplifier(1), (4, 10): Amplifier(1), (3, 11): Amplifier(1), (2, 12): Amplifier(1), (1, 13): Amplifier(1),
+        (14, 0): Amplifier(2), (7, 0): Amplifier(2), (0, 0): Amplifier(2), (0, 7): Amplifier(2), (0, 14): Amplifier(2), (7, 14): Amplifier(2), (14, 14): Amplifier(2), (14, 7): Amplifier(2),
+        (11, 0): Amplifier(3), (8, 2): Amplifier(3), (7, 3): Amplifier(3), (6, 2): Amplifier(3), (3, 0): Amplifier(3), (0, 3): Amplifier(3), (14, 3): Amplifier(3), (12, 6): Amplifier(3), (8, 6): Amplifier(3), (6, 6): Amplifier(3), (2, 6): Amplifier(3), (3, 7): Amplifier(3), (11, 7): Amplifier(3), (12, 8): Amplifier(3), (8, 8): Amplifier(3), (6, 8): Amplifier(3), (2, 8): Amplifier(3), (0, 11): Amplifier(3), (14, 11): Amplifier(3), (7, 11): Amplifier(3), (8, 12): Amplifier(3), (6, 12): Amplifier(3), (11, 14): Amplifier(3), (3, 14): Amplifier(3),
+        (5, 1): Amplifier(4), (9, 1): Amplifier(4), (13, 5): Amplifier(4), (9, 5): Amplifier(4), (5, 5): Amplifier(4), (1, 5): Amplifier(4), (1, 9): Amplifier(4), (5, 9): Amplifier(4), (9, 9): Amplifier(4), (13, 9): Amplifier(4), (9, 13): Amplifier(4), (5, 13): Amplifier(4)
+      }
+      self.remove_set:set[tuple[int,int]] = set()
 
     def get_word_points(self,col:int,row:int,letter:Character)-> tuple:
         if self.first_play is True:
-            self.first_play == False
+            self.first_play = False
             return (2,self.points_map[letter]) 
         if (col,row) in self.modifier_map: 
             amplifer = self.modifier_map[(col,row)]
+            self.remove_set.add((col,row))
             if amplifer.value == 1: return (2,self.points_map[letter])
             elif amplifer.value == 2: return (3,self.points_map[letter])
             elif amplifer.value == 3: return (1,2*self.points_map[letter])
             elif amplifer.value == 3: return (1,3*self.points_map[letter])
+        
+        return (1,self.points_map[letter])
+
+    def remove_modifers_after_play(self):
+      while self.remove_set:
+        self.modifier_map.pop(self.remove_set.pop())
 
 class Coords():
     def __init__(self,x=0,y=0):
@@ -152,9 +160,9 @@ class Board():
         #If main direction is horizontal, iterate to the left and right, and down and bottom of the characters of left and right.
         #-Gather all words and append it to the Result object. left-right characters go into Main Word, down-top characters make words go into chains[list]
         if direction is True:
-          #print('1')
+          print('hi')
           for i in range(x,-1,-1):
-            #print('2')
+           
             
             if self.board[y][i] is None: 
               result.main_word.beg = Slot(y,i+1)
@@ -324,6 +332,8 @@ class Board():
 
               #print((i,x))
               selected_copy.remove((i,x))
+            
+        self.charcter_evaluator.remove_modifers_after_play()
         return result
 
   

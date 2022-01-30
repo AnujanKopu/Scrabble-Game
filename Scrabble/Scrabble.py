@@ -71,8 +71,11 @@ class Display(arcade.Window):
 
 
     def on_update(self,delta_time:float):
-      self.menu.on_update(delta_time)
-
+      result = self.menu.on_update(delta_time)
+      if result is None: return
+      if result[0] == 'center':self.set_viewport(0,SCREEN_WIDTH,0,SCREEN_HEIGHT)
+      elif result[0] == 'change_state':self.change_state(result[1],result[2])
+ 
     def on_key_press(self, symbol: int, modifiers: int):
         self.menu.on_key_press(symbol,modifiers)
 
@@ -82,7 +85,7 @@ class Display(arcade.Window):
         if self.menu.on_mouse_drag(x,y,dx,dy,button,modifiers) and button == 4:
           a,b,c,d = self.get_viewport()
           self.set_viewport(min(SCREEN_WIDTH//2,max(-(SCREEN_WIDTH//2),a-dx)),min(max(SCREEN_WIDTH//2,b-dx),3*SCREEN_WIDTH//2),min(max(-(SCREEN_HEIGHT//2),c-dy),SCREEN_HEIGHT//2),min(max(SCREEN_HEIGHT//2,d-dy),3*SCREEN_HEIGHT//2))
-          self.menu.mouseoffset.x,self.menu.mouseoffset.y = (min(SCREEN_WIDTH//2,max(-(SCREEN_WIDTH//2),a-dx)),min(max(-(SCREEN_HEIGHT//2),c-dy),SCREEN_HEIGHT//2))
+          self.menu.screenoffset.x,self.menu.screenoffset.y = (min(SCREEN_WIDTH//2,max(-(SCREEN_WIDTH//2),a-dx)),min(max(-(SCREEN_HEIGHT//2),c-dy),SCREEN_HEIGHT//2))
 
 
 

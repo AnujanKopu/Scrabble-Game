@@ -11,8 +11,8 @@ class MyCycler():
         self.blacklist.add(player_number)
 
     def next_player(self):
-        a = next(self.cycle)
-        return a if a not in self.blacklist else self.blacklist.remove(a) or self.next_player()
+        player = next(self.cycle)
+        return player if player not in self.blacklist else self.blacklist.remove(player) or self.next_player()
 
     def get_first_player(self,player_list:list)->int:
         alphabetical_scores = [sum(ord(tile.letter.name if tile.letter.name != 'BLANK' else 'A') for tile in player.sprites) for player in player_list]

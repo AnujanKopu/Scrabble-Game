@@ -7,7 +7,7 @@ class Player():
         self.sprites:SpriteList = tiles
         self.points:int =0
         self.words:list = []
-        self.chain_words:list = []
+        
 
     def __hash__(self):
         return hash(self.name)
