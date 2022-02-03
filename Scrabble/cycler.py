@@ -5,12 +5,12 @@ from random import choice
 class MyCycler():
     def __init__(self,player_list:list):
         self.cycle: cycle = cycle([i for i in range(len(player_list))])
-        self.blacklist: set[str] = set()
+        self.blacklist: set[int] = set()
 
-    def add_to_blacklist(self,player_number:int):
+    def add_to_blacklist(self,player_number:int)->None:
         self.blacklist.add(player_number)
 
-    def next_player(self):
+    def next_player(self)->int:
         player = next(self.cycle)
         return player if player not in self.blacklist else self.blacklist.remove(player) or self.next_player()
 

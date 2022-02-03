@@ -15,8 +15,6 @@ from arcade.gui import (
 
 )
 
-
-
 class Display(arcade.Window):
   
     def __init__(self):
@@ -25,8 +23,7 @@ class Display(arcade.Window):
         """Setting up the basic display properties needed for the game"""
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
 
-        self.manager = UIManager() #Built in ui manager used to create buttons and text fields
-        self.manager.enable()
+        self.manager = UIManager(auto_enable=True) #Built in ui manager used to create buttons and text fields
         self.box = UIBoxLayout()
         self.anchor = UIAnchorWidget(
                 anchor_x="center_x",
@@ -73,7 +70,7 @@ class Display(arcade.Window):
     def on_update(self,delta_time:float):
       result = self.menu.on_update(delta_time)
       if result is None: return
-      if result[0] == 'center':self.set_viewport(0,SCREEN_WIDTH,0,SCREEN_HEIGHT)
+      if result[0] == 'center': self.set_viewport(0,SCREEN_WIDTH,0,SCREEN_HEIGHT) 
       elif result[0] == 'change_state':self.change_state(result[1],result[2])
  
     def on_key_press(self, symbol: int, modifiers: int):

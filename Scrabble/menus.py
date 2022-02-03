@@ -1,4 +1,3 @@
-from tkinter import font
 from bag import Bag
 from board import (
     Board,
@@ -13,6 +12,7 @@ from config import *
 from cycler import MyCycler
 from player import Player
 
+
 from abc import (
     ABC,
     abstractmethod
@@ -24,14 +24,14 @@ from enum import (
     Enum, 
     IntEnum
 )
-
 from typing import (
     NamedTuple,
     Optional
 )
-
 from threading import Thread
+import concurrent.futures
 from time import sleep
+
 
 import arcade
 from arcade.gui import (
@@ -40,10 +40,12 @@ from arcade.gui import (
   UIBoxLayout,
   UILabel,
   UIInputText,
-  UIMessageBox
+  UIMessageBox,
+  UITextArea,
 )
 from arcade.gui.events import UIMousePressEvent,UITextEvent
 from pyglet.event import EVENT_UNHANDLED,EVENT_HANDLED
+
 
 
 KEY_C,KEY_P,KEY_S = 99,112,115
@@ -164,7 +166,7 @@ class ToBeImplementedMenu(Menu):
         pass
 
     def get_ui_widgets(self) -> UIWidgets:
-        return UIWidgets(reg_widgets=[UILabel(text=f"{__class__.__name__} to be Implemented",font_name=('Open Sans',),font_size=((SCREEN_WIDTH*(4/5))/len(f"{__class__.__name__} to be Implemented")),italic=True,bold=True,text_color=(0,0,0,255)).with_space_around(bottom=SCREEN_WIDTH//7)],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
+        return UIWidgets(reg_widgets=[UILabel(text=f" {self.__class__.__name__} to be Implemented ",font_name=('Open Sans',),font_size=((SCREEN_WIDTH*(4/5))/len(f"{__class__.__name__} to be Implemented")),bold=True,text_color=(0,0,0,255)).with_space_around(bottom=SCREEN_WIDTH//7)],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
 
 class SelectionMenu(Menu):
     box_x: str = 'center'
@@ -214,17 +216,17 @@ class SetupMenu1(Menu):
         #Number of players 
         #only top center for now if more options top left
         top_left = UIBoxLayout()
-        top_left.add(UILabel(text="Choose Number of players",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/75),italic=True,bold=True))
+        top_left.add(UILabel(text="Choose Number of Players",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/60),bold=True))
 
-        count_lbl = UILabel(text="   2   ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/50),italic=True,bold=True)
+        count_lbl = UILabel(text="   2   ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/50),bold=True)
 
         self.player_count = count_lbl.text
 
         top_left.add(count_lbl)
         
         top_left_bottom = UIBoxLayout(vertical=False)
-        add_btn = UIFlatButton(text="+", width=SCREEN_WIDTH//10)
-        sub_btn = UIFlatButton(text="-", width=SCREEN_WIDTH//10)
+        add_btn = UIFlatButton(text=" + ", width=SCREEN_WIDTH//10)
+        sub_btn = UIFlatButton(text=" - ", width=SCREEN_WIDTH//10)
 
         def add():
             count_lbl.text = ("   "+str(int(count_lbl.text)+1)+"   ") if int(count_lbl.text) < 4 else "   4   "
@@ -241,7 +243,7 @@ class SetupMenu1(Menu):
 
         top_left.add(top_left_bottom)
 
-        #count_lbl2 = UILabel(text="   50   ",font_name=('Open Sans',),font_size =SCREEN_WIDTH//50,italic=True,bold=True)
+        #count_lbl2 = UILabel(text="   50   ",font_name=('Open Sans',),font_size =SCREEN_WIDTH//50,bold=True)
         #self.points_to_win = count_lbl2.text 
 
 
@@ -269,7 +271,7 @@ class SetupMenu2(Menu):
     background_colour: arcade.color = arcade.color.AMAZON
 
 
-    def __init__(self,numberofplayers:int):
+    def __init__(self,numberofplayers:int ):
         self.num_of_players:int = numberofplayers
         self.player_names:list[str] = []
         
@@ -284,7 +286,7 @@ class SetupMenu2(Menu):
             if i%2 == 0:
                 rows.append(UIBoxLayout(vertical=False))
             box = UIBoxLayout()
-            name_label = UILabel(text=f"        Player{i+1}'s Name       ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/50),width=SCREEN_WIDTH//3,text_color=arcade.color.WHITE)
+            name_label = UILabel(text=f"        Player{i+1}'s Name       ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/50),bold=True,width=SCREEN_WIDTH//3,text_color=arcade.color.WHITE)
             box.add(name_label)
             name_input = MyInputText(text='      Enter an alphebetical Name      ',font_size=(SCREEN_WIDTH/75),font_name=('Open Sans',),width=SCREEN_WIDTH//3,height=50)
             self.player_names.append(name_input)
@@ -299,7 +301,7 @@ class SetupMenu2(Menu):
     
     def validate(self):
         for i in self.player_names:
-            if i.text == "" or i.text == 'Enter an alphebetical Name' or not i.text.isalpha():
+            if i.text == "" or i.text == 'Enter an Alphebetical Name' or not i.text.isalpha():
                 return 1 
         if len(self.player_names) != len(set(i.text for i in self.player_names)): return 1
         return 0 
@@ -322,7 +324,7 @@ class GameMenu(Menu):
         self.board:Board = Board()  
         self.hand:CurrentHand = CurrentHand()
         self.screenoffset:Coords = Coords()
-        self.points_to_win = 20
+        self.points_to_win = 40
 
         self.players:list[Player] = [Player(players[j],self.create_sprite_list(j,len(players))) for j in range(len(players))] 
         self.cycler:MyCycler =  MyCycler(self.players)
@@ -331,75 +333,97 @@ class GameMenu(Menu):
         self.center:UIBoxLayout = UIBoxLayout()
     
         self.placed:list[tuple[float,float,float,float]] = []
+        self.tiles_to_shuffle:list[Tile] = []
+        self.words:Play = None
+
+
         self.s:bool = ACTIVE
         self.p:bool = ACTIVE
         self.c:bool = UNACTIVE
         self.error:bool = UNACTIVE
-        self.challenged:bool = UNACTIVE
+        self.challenging :bool = UNACTIVE
+        self.shuffling: bool = UNACTIVE
         self.move_freeze:bool = UNACTIVE
 
-        
-        self.event_reset:Play = None
+        self.event_center:bool = ACTIVE
+        self.event_reset:bool = False
         self.event_end_game:bool = False
+        
 
-    def draw(self):
+    def draw(self)->None:
       self.draw_gameboard()
+
       self.draw_playerdeck(*self.get_pd_orientation(0,len(self.players)))
       self.draw_playerdeck(*self.get_pd_orientation(1,len(self.players))) 
       if len(self.players) >= 3: self.draw_playerdeck(*self.get_pd_orientation(2,len(self.players)))
       if len(self.players) == 4: self.draw_playerdeck(*self.get_pd_orientation(3,len(self.players)))
+
       self.draw_sprites()
+
       if self.placed: self.draw_outline_of_chains()
       self.draw_placed_tile_outline()
+
+      if self.shuffling:arcade.draw_text(f"Shuffeling mode is on!",0+self.screenoffset.x,SCREEN_HEIGHT*(9/10)+self.screenoffset.y,(255,255,255),font_size=SCREEN_WIDTH//30,font_name=('Open Sans',),bold=True,rotation=0)
         
     def get_ui_widgets(self) -> UIWidgets:
         return UIWidgets(reg_widgets=[self.center],change_state_buttons=[])
         pass 
 
 
-    def get_next_stage_info(self):
+    def get_next_stage_info(self)->tuple[str,int]:
         return (self.players[self.current_player].name,self.players[self.current_player].points)
 
     def on_update(self,delta_time:float):
-        if self.challenged is False and self.event_reset: 
-            temp = self.event_reset
-            self.event_reset = None
+        if self.challenging  is False and self.event_reset is True: 
+            self.event_reset = False
+            if self.words is None: return 
+            temp = self.words
+            self.words = None
             self.c = UNACTIVE
-            text = f"{self.players[self.current_player].name} has scored: {temp.get_points()} Points\nPlayer main word: {temp.main_word}={temp.main_word.value*temp.main_word.word_amp}P \n\nPlayer chain words:\n     "+"".join([f'{i}={i.value*i.word_amp}P,\n     ' for i in temp.chains])
+            text = f"{self.players[self.current_player].name} has scored: {temp.get_points()} Points\n\nPlayer main word: {temp.main_word}={temp.main_word.value*temp.main_word.word_amp}P \n\nPlayer chain words:\n     "+"".join([f'{i}={i.value*i.word_amp}P,\n     ' for i in temp.chains])
             self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=text,callback=lambda text: self.progress_game(temp)))
-            return ('center',)
-
+            self.event_center = ACTIVE
+        elif self.event_center:
+            self.event_center = UNACTIVE
+            self.screenoffset.x,self.screenoffset.y = 0,0
+            return ('center',) 
         elif self.event_end_game is True: return ('change_state',4,self.get_next_stage_info())
             
 
     
 
-    def on_key_press(self, symbol: int, modifiers: int):
+    def on_key_press(self, symbol: int, modifiers: int)->None:
         if self.p is ACTIVE and symbol == KEY_P:
             self.finalize_play()  
         if self.s is ACTIVE and symbol == KEY_S:
-            #self.shuffle()
-            pass  
+            self.shuffle()
         elif self.c is ACTIVE and symbol == KEY_C:
-            #self.challenge()
+            self.challenge()
             pass
 
-    def on_mouse_drag(self, x: float, y: float, dx: float, dy: float, button: int, modifiers: int):
+    def on_mouse_drag(self, x: float, y: float, dx: float, dy: float, button: int, modifiers: int)->int:
         if self.move_freeze is ACTIVE: return
         if button == 1 and not self.hand.held is None:
               self.hand.held.center_x += dx
               self.hand.held.center_y += dy
         return 1
 
-    def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
+    def on_mouse_press(self, x: float, y: float, button: int, modifiers: int)->None:
         if self.move_freeze is ACTIVE: return
         if button == 1:
             tile = arcade.get_sprites_at_point((x+self.screenoffset.x, y+self.screenoffset.y), self.players[self.current_player].sprites)
             if len(tile) > 0:
-                self.hand.held_origin.x,self.hand.held_origin.y = tile[0].center_x,tile[0].center_y
-                self.hand.held = tile[0]
+
+                if not self.shuffling:
+                    self.hand.held_origin.x,self.hand.held_origin.y = tile[0].center_x,tile[0].center_y
+                    self.hand.held = tile[0]
+                else:
+                    if tile[0] not in self.tiles_to_shuffle:
+                        self.tiles_to_shuffle.append(tile[0])
+                    else:
+                        self.tiles_to_shuffle.remove(tile[0])
     
-    def on_mouse_release(self, x: float, y: float, button: int, modifiers: int):
+    def on_mouse_release(self, x: float, y: float, button: int, modifiers: int)->None:
         if self.move_freeze is ACTIVE: return
         if button ==1 and self.hand.held:
             self.check_released_slot()
@@ -408,7 +432,7 @@ class GameMenu(Menu):
 
 
     
-    def finalize_play(self):
+    def finalize_play(self)->None:
         if len(self.hand.selected) < 2: return 
         if self.hand.held:
             self.hand.held.center_x,self.hand.held.center_y = self.hand.held_origin.x,self.hand.held_origin.y
@@ -425,8 +449,140 @@ class GameMenu(Menu):
         t.start()
 
 
+    def shuffle(self)-> None:
+        def set_controls_back(_):
+            self.p = self.s = ACTIVE
+            self.move_freeze = UNACTIVE
 
-    def check_released_slot(self):
+
+        if self.shuffling == UNACTIVE:
+            self.shuffling = ACTIVE
+            self.p = UNACTIVE
+        else:
+            if self.tiles_to_shuffle:
+                self.s = ACTIVE
+                self.move_freeze = UNACTIVE
+                self.event_center = ACTIVE
+                
+
+                self.bag.extend_bag([i.letter for i in self.tiles_to_shuffle])
+                while self.tiles_to_shuffle: 
+                    temp = self.tiles_to_shuffle.pop()
+                    new_tile = self.make_sprite(Coords(temp.center_x,temp.center_y) if not self.on_gameboard(temp.center_x,temp.center_y) else self.hand.empty_origin.pop())
+                    self.players[self.current_player].sprites.pop(self.players[self.current_player].sprites.index(temp))
+                    self.players[self.current_player].sprites.append(new_tile)
+                
+
+                self.shuffling = UNACTIVE
+
+                self.clean_gameboard()
+                self.current_player = self.cycler.next_player()
+
+                self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}',callback=set_controls_back))
+                
+                
+
+            else:
+                self.shuffling = UNACTIVE
+                self.p = ACTIVE
+
+
+    def challenge(self)->None:
+        self.challenging  = ACTIVE
+        self.c = UNACTIVE
+        self.event_center = ACTIVE
+
+        header = UILabel(width=SCREEN_WIDTH*(1/3),height=SCREEN_HEIGHT//15,text=f"Please select  challenger's name",font_name=('Open Sans',),font_size=(SCREEN_WIDTH*(2/3))/32,bold=True).with_space_around(bg_color=arcade.color.BLACK)
+        row1 = UIBoxLayout(vertical=False)
+        row2 = UIBoxLayout(vertical=False)
+        
+
+        button1 = UIFlatButton(width=SCREEN_WIDTH*(1/6),height=SCREEN_HEIGHT*(1/6),text=self.players[0].name,font_name=('Open Sans',),font_size=(SCREEN_WIDTH*(1/3))/len(self.players[0].name),style={'bg_color':(10, 204, 126),'border_color':(255,255,255)})
+        button2 = UIFlatButton(width=SCREEN_WIDTH*(1/6),height=SCREEN_HEIGHT*(1/6),text=self.players[1].name,font_name=('Open Sans',),font_size=(SCREEN_WIDTH*(1/3))/len(self.players[1].name),style={'bg_color':(50, 24, 217),'border_color':(255,255,255)})
+
+        button1.on_click = lambda event: self.validate_words(0) 
+        button2.on_click = lambda event: self.validate_words(1)
+        row1.add(button1)
+        row1.add(button2)
+
+        if len(self.players) > 2: 
+            button3 = UIFlatButton(width=SCREEN_WIDTH*(1/6),height=SCREEN_HEIGHT*(1/6),text=self.players[2].name,font_name=('Open Sans',),font_size=(SCREEN_WIDTH*(1/3))/len(self.players[2].name),style={'bg_color':(212, 4, 25),'border_color':(255,255,255)})
+            button3.on_click = lambda event: self.validate_words(2)
+            row2.add(button3)
+            if len(self.players) > 3: 
+                button4 = UIFlatButton(width=SCREEN_WIDTH*(1/6),height=SCREEN_HEIGHT*(1/6),text=self.players[3].name,font_name=('Open Sans',),font_size=(SCREEN_WIDTH*(1/3))/len(self.players[3].name),style={'bg_color':(242, 235, 12),'border_color':(255,255,255)})
+                button4.on_click = lambda event: self.validate_words(3)
+                row2.add(button4)
+
+        row1 = row1.with_space_around(bg_color=arcade.color.WHITE)
+        row2 = row2.with_space_around(bg_color=arcade.color.WHITE)
+        footer = UIFlatButton(width=SCREEN_WIDTH*(1/3),height=SCREEN_HEIGHT//15,text="Cancel Challenge")
+        def resume_play():
+            self.center.clear() 
+            self.challenging  = UNACTIVE
+        footer.on_click = lambda event: resume_play()
+        self.center.add(header)
+        self.center.add(row1)
+        self.center.add(row2)
+        self.center.add(footer)
+
+    def validate_words(self,challenger:int):
+        self.center.clear()
+        list_of_words = [str(i).lower() for i in self.words.chains] + [str(self.words.main_word).lower()]
+        result_container = ([],[])
+        with concurrent.futures.ThreadPoolExecutor() as executor: 
+            results = executor.map(self.board.word_checker.check,list_of_words)
+
+            for result in results:
+                if result[0] is False: result_container[0].append(result[1])
+                else: result_container[1].append((result[1],result[2]))
+
+        was_correct = True if result_container[0] else False
+        text = 'WORDS NOT IN DICTIONARY:\n\n' + ''.join(["     -"+i.capitalize()+"\n" for i in result_container[0]]) + '\nWORDS IN DICTIONARY:\n\n' + "".join([i[0].capitalize()+'='+str(i[1] if not i[1] is None else 'N/A')+'\n\n' for i in result_container[1]]) + '\n\n\n\n\n'
+        self.center.add(UITextArea(width=(SCREEN_WIDTH*(2/3)),height=(SCREEN_HEIGHT*(2/3)),text=text,font_name=('Open Sans',),text_color=arcade.color.RED_DEVIL).with_space_around(bg_color=arcade.color.WHITE))
+        button = UIFlatButton(text='Finished',width=(SCREEN_WIDTH*(2/3)),height=(SCREEN_HEIGHT//10))
+        button.on_click = lambda event: self.center.clear() or self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f"{self.players[challenger].name} was CORRECT. {self.players[self.current_player].name}'s play will be REVOKED" if was_correct else f"{self.players[challenger].name} was INCORRECt. {self.players[challenger].name}'s next move will be skipped",callback= lambda text:self.finish_challenge(challenger,was_correct)))
+        self.center.add(button) 
+            
+    def finish_challenge(self,challenger:int,was_correct:bool)->None:
+        def set_controls_back(_):
+            self.p = self.s = ACTIVE
+            self.move_freeze = UNACTIVE
+
+        if was_correct is True:
+            self.clean_gameboard()
+            self.current_player = self.cycler.next_player()
+            self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}',callback=set_controls_back))
+            
+            self.board.clean_word_map_of_invalid_play(self.words)
+            self.event_reset = False
+            self.words = None
+            self.challenging  = UNACTIVE
+            
+            
+        else:
+            self.cycler.add_to_blacklist(challenger)
+            self.challenging  = UNACTIVE
+
+
+
+
+    def clean_gameboard(self):
+            i = 0
+            while i < len(self.players[self.current_player].sprites):
+                if self.on_gameboard(self.players[self.current_player].sprites[i].center_x,self.players[self.current_player].sprites[i].center_y):
+                    origin = self.hand.empty_origin.pop()
+                    self.players[self.current_player].sprites[i].center_x,self.players[self.current_player].sprites[i].center_y = origin.x,origin.y
+                else:
+                    i+=1 
+            while self.hand.selected:
+                temp = self.hand.selected.pop()
+                self.board.place_on_board(temp.col,temp.row,None) 
+            
+
+
+
+    def check_released_slot(self)->None:
         if self.on_gameboard(self.hand.held.center_x,self.hand.held.center_y):
             col,row = self.get_gameboard_slots(self.hand.held.center_x,self.hand.held.center_y)
 
@@ -508,35 +664,17 @@ class GameMenu(Menu):
 
 
 
-    def create_sprite_list(self,pindex,numofplayers):
+    def create_sprite_list(self,pindex,numofplayers)->list[Tile]:
         tiles = arcade.SpriteList()
         for index,char in enumerate(self.bag.player_setup()):
           tiles.append(Tile(char,self.get_tile_orientation(pindex,index,numofplayers)))
         return tiles
 
-
-  
-    @staticmethod
-    def get_tile_orientation(gindex,index,num_players):
-      if gindex == 0: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':(SCREEN_WIDTH//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'center_y':SCREEN_HEIGHT*0.05}
-      elif gindex ==1 and num_players < 3: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':(SCREEN_WIDTH//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'center_y':SCREEN_HEIGHT*0.95,'angle':180.0}
-      elif gindex ==1: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':SCREEN_WIDTH*0.05,'center_y':(SCREEN_HEIGHT//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'angle':270.0}
-      elif gindex ==2: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':(SCREEN_WIDTH//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'center_y':SCREEN_HEIGHT*0.95,'angle':180.0}
-      elif gindex ==3: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':SCREEN_WIDTH*0.95,'center_y':(SCREEN_HEIGHT//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'angle':90.0}
-
-    #Dimensions to create player_deck
-    @staticmethod
-    def get_pd_orientation(player,numofplayers):
-      if player==0:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.05,0,SCREEN_WIDTH//2-(PD_LENGTH/2),(SCREEN_HEIGHT*0.05)+GB_LEN/25)
-      elif player==1:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,180,SCREEN_WIDTH//2+(PD_LENGTH/2),(SCREEN_HEIGHT*0.95)-GB_LEN/25) if numofplayers < 3 else (player,SCREEN_WIDTH*0.05,SCREEN_HEIGHT//2,270,(SCREEN_WIDTH*0.05)+GB_LEN//25,SCREEN_HEIGHT//2+(PD_LENGTH/2))
-      elif player==2:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,180,SCREEN_WIDTH//2+(PD_LENGTH/2),(SCREEN_HEIGHT*0.95)-GB_LEN/25)
-      elif player==3:return (player,SCREEN_WIDTH*0.95,SCREEN_HEIGHT//2,90,(SCREEN_WIDTH*0.95)-GB_LEN/25,SCREEN_HEIGHT//2-(PD_LENGTH/2))
-
     
-    def draw_gameboard(self):
+    def draw_gameboard(self)->None:
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,GB_LEN, GB_LEN, GB)
 
-    def draw_playerdeck(self,player,center_x,center_y,angle,text_center_x,text_center_y):
+    def draw_playerdeck(self,player,center_x,center_y,angle,text_center_x,text_center_y)->None:
         arcade.draw_rectangle_filled(center_x,center_y,PD_LENGTH,PD_HEIGHT,(168, 112, 66),tilt_angle=angle)
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH,PD_HEIGHT,(255,255,255), tilt_angle=angle)
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH-(PD_HEIGHT*2),PD_HEIGHT,(255,255,255),tilt_angle=angle)
@@ -544,18 +682,21 @@ class GameMenu(Menu):
         arcade.draw_rectangle_outline(center_x,center_y,PD_LENGTH-(PD_HEIGHT*6),PD_HEIGHT,(255,255,255),tilt_angle=angle)
         arcade.draw_text(f"{self.players[player].name}:{self.players[player].points}",text_center_x,text_center_y,(255,255,255) if player != self.current_player else (57, 255, 20),font_size=SCREEN_HEIGHT//45,font_name=('Open Sans',),bold=True,rotation=angle)
 
-    def draw_sprites(self):
+    def draw_sprites(self)->None:
         self.board.board_tiles.draw()
         self.players[self.current_player].sprites.draw()
 
-    def draw_placed_tile_outline(self):
+    def draw_placed_tile_outline(self)->None:
         for i in self.players[self.current_player].sprites:
             if i != self.hand.held:
                 if i.center_x > (SCREEN_WIDTH//2 - GB_LEN//2) and i.center_x < (SCREEN_WIDTH//2 + GB_LEN//2) and i.center_y > (SCREEN_HEIGHT//2 -GB_LEN//2) and i.center_y < (SCREEN_HEIGHT//2 +GB_LEN//2):
                     arcade.draw_rectangle_outline(i.center_x,i.center_y,PD_HEIGHT,PD_HEIGHT,(57, 255, 20) if self.error is UNACTIVE else (255, 0, 0),border_width=2,tilt_angle=0)
 
+        for i in self.tiles_to_shuffle:
+            arcade.draw_rectangle_outline(i.center_x,i.center_y,PD_HEIGHT,PD_HEIGHT,(217, 255, 0),border_width=2,tilt_angle=0)
 
-    def draw_outline_of_chains(self):
+
+    def draw_outline_of_chains(self)->None:
         for i in self.placed: arcade.draw_rectangle_outline(*i,(0, 255, 247),2)
 
 
@@ -581,21 +722,6 @@ class GameMenu(Menu):
         #pdsx,pdsy refers to a player deck slot x and y center coords
         return x > pdsx-PD_HEIGHT//2 and x < pdsx+PD_HEIGHT//2 and y > pdsy-PD_HEIGHT//2 and y < pdsy+PD_HEIGHT//2
 
-
-    @staticmethod
-    def get_tilt_angle(current_player:int,numofplayers:int) -> int:
-        if current_player == 0: return 0
-        elif current_player == 1: return 180 if numofplayers  < 3 else 90
-        elif current_player == 2: return 180
-        else: return 270
-
-    @staticmethod
-    def swap_positions_and_angles_with_held(t1:Tile,origin:Coords,t2:Tile):
-        t1.center_x,t1.center_y = t2.center_x,t2.center_y
-        t2.center_x,t2.center_y = origin.x,origin.y
-        t1.angle,t2.angle = t2.angle,t1.angle
-
-
     def WordIsNotLinear(self):
         self.error = ACTIVE
         self.p = self.s = UNACTIVE
@@ -606,7 +732,7 @@ class GameMenu(Menu):
 
     
 
-    def create_placed_gridline(self,words:list) -> list[tuple[float,float,float,float]]:
+    def create_placed_gridline(self,words:list[tuple[Slot,Slot]]) -> list[tuple[float,float,float,float]]:
         arr = []
         for i in words:
             if i[0].col == i[1].col:
@@ -619,19 +745,20 @@ class GameMenu(Menu):
                 arr.append((center_x,center_y,width,PD_HEIGHT))
         return arr
 
-    def create_placed_indicator(self,words:list):
+    def create_placed_indicator(self,words:Play)->None:
         self.move_freeze = ACTIVE
         self.p = self.s = UNACTIVE
         self.c = ACTIVE
         self.placed = self.create_placed_gridline(([(i.beg,i.end) for i in words.chains]+[(words.main_word.beg,words.main_word.end)]))
-        sleep(6)
+        self.words = words
+        sleep(7)
         self.placed.clear()
-        self.event_reset = words
+        self.event_reset = True 
 
 
 
-    def make_sprite(self,empty_origin:Coords)-> Tile:
-        return Tile(self.bag.grab_next(),{'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':empty_origin.x,'center_y':empty_origin.y,'angle':self.get_tilt_angle(self.current_player,len(self.players))})
+    def make_sprite(self,origin:Coords)-> Tile:
+        return Tile(self.bag.grab_next(),{'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':origin.x,'center_y':origin.y,'angle':self.get_tilt_angle(self.current_player,len(self.players))})
 
     def reset_play(self)->None:
         self.hand.selected.clear()
@@ -646,7 +773,11 @@ class GameMenu(Menu):
         while self.hand.empty_origin:
             self.players[self.current_player].sprites.append(self.make_sprite(self.hand.empty_origin.pop()))
 
-    def progress_game(self,words:Play):
+    def progress_game(self,words:Play)-> None:
+        def set_controls_back(_):
+            self.p = self.s = ACTIVE
+            self.move_freeze = UNACTIVE
+
         self.reset_play()
         self.players[self.current_player].points += words.get_points()
         self.players[self.current_player].words.append(words)
@@ -656,9 +787,38 @@ class GameMenu(Menu):
             return
 
         self.current_player = self.cycler.next_player()
-        self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/5,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}'))
-        self.p = self.s = ACTIVE
-        self.move_freeze = UNACTIVE
+        self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}',callback=set_controls_back))
+
+
+    
+    @staticmethod
+    def get_tilt_angle(current_player:int,numofplayers:int) -> int:
+        if current_player == 0: return 0
+        elif current_player == 1: return 180 if numofplayers  < 3 else 90
+        elif current_player == 2: return 180
+        else: return 270
+
+    @staticmethod
+    def swap_positions_and_angles_with_held(t1:Tile,origin:Coords,t2:Tile)->None:
+        t1.center_x,t1.center_y = t2.center_x,t2.center_y
+        t2.center_x,t2.center_y = origin.x,origin.y
+        t1.angle,t2.angle = t2.angle,t1.angle
+
+    @staticmethod
+    def get_tile_orientation(gindex,index,num_players)->None:
+      if gindex == 0: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':(SCREEN_WIDTH//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'center_y':SCREEN_HEIGHT*0.05}
+      elif gindex ==1 and num_players < 3: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':(SCREEN_WIDTH//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'center_y':SCREEN_HEIGHT*0.95,'angle':180.0}
+      elif gindex ==1: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':SCREEN_WIDTH*0.05,'center_y':(SCREEN_HEIGHT//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'angle':270.0}
+      elif gindex ==2: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':(SCREEN_WIDTH//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'center_y':SCREEN_HEIGHT*0.95,'angle':180.0}
+      elif gindex ==3: return {'image_width':GB_LEN//16,'image_height':GB_LEN//16,'center_x':SCREEN_WIDTH*0.95,'center_y':(SCREEN_HEIGHT//2 + PD_HEIGHT*3)-PD_HEIGHT*index,'angle':90.0}
+
+    #Dimensions to create player_deck
+    @staticmethod
+    def get_pd_orientation(player,numofplayers)->None:
+      if player==0:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.05,0,SCREEN_WIDTH//2-(PD_LENGTH/2),(SCREEN_HEIGHT*0.05)+GB_LEN/25)
+      elif player==1:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,180,SCREEN_WIDTH//2+(PD_LENGTH/2),(SCREEN_HEIGHT*0.95)-GB_LEN/25) if numofplayers < 3 else (player,SCREEN_WIDTH*0.05,SCREEN_HEIGHT//2,270,(SCREEN_WIDTH*0.05)+GB_LEN//25,SCREEN_HEIGHT//2+(PD_LENGTH/2))
+      elif player==2:return (player,SCREEN_WIDTH//2,SCREEN_HEIGHT*0.95,180,SCREEN_WIDTH//2+(PD_LENGTH/2),(SCREEN_HEIGHT*0.95)-GB_LEN/25)
+      elif player==3:return (player,SCREEN_WIDTH*0.95,SCREEN_HEIGHT//2,90,(SCREEN_WIDTH*0.95)-GB_LEN/25,SCREEN_HEIGHT//2-(PD_LENGTH/2))
 
 
         
@@ -677,7 +837,7 @@ class GameFinishedMenu(Menu):
 
     def get_ui_widgets(self) -> UIWidgets:
         
-        return UIWidgets(reg_widgets=[UILabel(text=f"{self.player_name} has won the game with {self.player_points}",font_name=('Open Sans',),font_size=((SCREEN_WIDTH*(2/3))/len(f"{self.player_name} has won the game with {self.player_points}")),italic=True,bold=True,text_color=(0,0,0,255)).with_space_around(bottom=SCREEN_WIDTH//7)],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
+        return UIWidgets(reg_widgets=[UILabel(text=f" {self.player_name} has won the game with {self.player_points} ",font_name=('Open Sans',),font_size=((SCREEN_WIDTH*(2/3))/len(f"{self.player_name} has won the game with {self.player_points}")),bold=True,text_color=(0,0,0,255)).with_space_around(bottom=SCREEN_WIDTH//7)],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
 
 class SettingsMenu(ToBeImplementedMenu):
     pass

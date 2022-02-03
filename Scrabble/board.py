@@ -1,9 +1,8 @@
 import enum
 
-from arcade import SpriteList
+from arcade import SpriteList,Sprite
 from bag import Character
-
-
+from word_checker import WordChecker
 
 HORIZONTAL = False
 VERTICAL = True
@@ -50,7 +49,6 @@ class Play():
     self.chains:list[Word] = []
 
   def get_points(self) -> int:
-    print(self.main_word.value*self.main_word.word_amp,sum([i.value*i.word_amp for i in self.chains]))
     return self.main_word.value*self.main_word.word_amp + sum([i.value*i.word_amp for i in self.chains])
 
 
@@ -73,7 +71,7 @@ class CharacterEvaluator():
       }
       self.remove_set:set[tuple[int,int]] = set()
 
-    def get_word_points(self,col:int,row:int,letter:Character)-> tuple:
+    def get_word_points(self,col:int,row:int,letter:Character)-> tuple[int,int]:
         if self.first_play is True:
             self.first_play = False
             return (2,self.points_map[letter]) 
@@ -87,7 +85,11 @@ class CharacterEvaluator():
         
         return (1,self.points_map[letter])
 
-    def remove_modifers_after_play(self):
+    def invalid_play(self)->None:
+      self.remove_set.clear()
+
+
+    def remove_modifers_after_play(self)->None:
       while self.remove_set:
         self.modifier_map.pop(self.remove_set.pop())
 
@@ -101,7 +103,7 @@ class CurrentHand():
   def __init__(self):
     self.selected:set[Slot] = set()
     self.empty_origin:list[Coords] = []
-    self.held = None
+    self.held:Sprite = None
     self.held_origin:Coords = Coords()
 
 class Board():
@@ -110,8 +112,9 @@ class Board():
       self.board_tiles:SpriteList = SpriteList()
       self.coord_map:set[tuple[Slot]] = set()
       self.charcter_evaluator: CharacterEvaluator = CharacterEvaluator()
+      self.word_checker = WordChecker()
 
-    def add_tiles(self,tiles:SpriteList):
+    def add_tiles(self,tiles:SpriteList)->None:
       self.board_tiles.extend(tiles)
 
     def place_on_board(self,col:int,row:int,character:Character)-> None:
@@ -120,21 +123,25 @@ class Board():
     def swap_on_board(self,col1:int,row1:int,col2:int,row2:int)->None:
         self.board[col1][row1],self.board[col2][row2] = self.board[col2][row2],self.board[col1][row1] 
 
-    def slot_used(self,col,row):
+    def slot_used(self,col,row)->bool:
       return True if not self.board[col][row] is None else False
 
     def validate_slot(self,col,row,beside_itself=False)->None:
+
       number_of_tiles_needed = 1 if beside_itself is False else 2
       if self.board[7][7] is None: return True if col == 7 and row == 7 else False 
+
       for x,y in ((0,1),(1,0),(0,-1),(-1,0)):
         if col+x >= 0 and col+x < 15 and row+y >= 0 and row+y < 15:
           if not self.board[col+x][row+y] is None: 
               number_of_tiles_needed -= 1
               if number_of_tiles_needed == 0: return True
+
       return False
 
 
     def get_main_direction(self,first_tile_coords:Slot,second_tile_coords:Slot)-> bool:
+
         if (first_tile_coords.col ==second_tile_coords.col) ^ (first_tile_coords.row==second_tile_coords.row):
             if first_tile_coords.col==second_tile_coords.col: return VERTICAL
             elif first_tile_coords.row==second_tile_coords.row: return HORIZONTAL
@@ -145,22 +152,21 @@ class Board():
         word_amp,points = self.charcter_evaluator.get_word_points(col,row,word.characters[-1]) 
         word.word_amp *= word_amp
         word.value += points
-        pass
+        
 
     def addleft(self,col:int,row:int,word:Word) -> None:
         word.characters.insert(0,self.board[col][row])
         word_amp,points = self.charcter_evaluator.get_word_points(col,row,word.characters[0]) 
         word.word_amp *= word_amp
         word.value += points
-        pass
+        
 
-    def get_words(self,selected_copy:set,direction:bool,y:int,x:int)-> Play: #x,y of a random position of the word as a pivot point
+    def get_words(self,selected_copy:set,direction:bool,y:int,x:int)-> Play: 
+        self.charcter_evaluator.remove_modifers_after_play()
         result = Play(y,x)
 
-        #If main direction is horizontal, iterate to the left and right, and down and bottom of the characters of left and right.
-        #-Gather all words and append it to the Result object. left-right characters go into Main Word, down-top characters make words go into chains[list]
+       
         if direction is True:
-          print('hi')
           for i in range(x,-1,-1):
            
             
@@ -170,10 +176,10 @@ class Board():
             if i == 0:
               result.main_word.beg = Slot(y,i)
             
-            #print('here')
+
             self.add(y,i,result.main_word)
               
-            #print('1:',(y,i))
+  
             if (y,i) in selected_copy:
               temp = Word(y,i)
               
@@ -184,7 +190,7 @@ class Board():
                   break
                 if j == 0:
                   temp.beg = Slot(j,i)
-                self.add(j,i,temp)
+                self.addleft(j,i,temp)
               
 
               for j in range(y,len(self.board)):
@@ -193,7 +199,7 @@ class Board():
                   break
                 if j == len(self.board)-1:
                   temp.end = Slot(j,i)
-                self.addleft(j,i,temp)
+                self.add(j,i,temp)
                
                 
 
@@ -202,22 +208,20 @@ class Board():
                   result.chains.append(temp)
                   self.coord_map.add((temp.beg,temp.end))
 
-              #print((y,i))
               selected_copy.remove((y,i))
 
-          #print('3')
+ 
           for i in range(x+1,len(self.board[y])):
-            #print('4')
+     
             if self.board[y][i] is None: 
               result.main_word.end = Slot(y,i-1)
               break
             if i == len(self.board)-1:
               result.main_word.end = Slot(y,i)
           
-            #print('here2')
+
             self.addleft(y,i,result.main_word)
           
-            #print('2:',(y,i))
             if (y,i) in selected_copy:
               temp = Word(y,i)
               for j in range(y-1,-1,-1):
@@ -226,7 +230,7 @@ class Board():
                   break
                 if j == 0:
                   temp.beg = Slot(j,i)
-                self.add(j,i,temp) 
+                self.addleft(j,i,temp) 
 
 
          
@@ -236,7 +240,7 @@ class Board():
                   break
                 if j == len(self.board)-1:
                   temp.end = Slot(j,i)
-                self.addleft(j,i,temp)
+                self.add(j,i,temp)
 
 
 
@@ -245,7 +249,6 @@ class Board():
                   result.chains.append(temp)
                   self.coord_map.add((temp.beg,temp.end))
               
-              #print((y,i))
               selected_copy.remove((y,i))
 
         else:
@@ -259,7 +262,6 @@ class Board():
             self.add(i,x,result.main_word)
 
 
-            #print('3:',(i,x))
             if (i,x) in selected_copy:
               temp = Word(i,x)
               for j in range(x+1,len(self.board[i])):
@@ -287,7 +289,7 @@ class Board():
                   result.chains.append(temp)
                   self.coord_map.add((temp.beg,temp.end))
               
-              #print((i,x))
+
               selected_copy.remove((i,x))
 
 
@@ -301,7 +303,6 @@ class Board():
             self.addleft(i,x,result.main_word) 
 
             
-            #print('3:',(i,x))
             if (i,x) in selected_copy:
               temp = Word(i,x)
               for j in range(x+1,len(self.board[i])):
@@ -330,24 +331,20 @@ class Board():
                   result.chains.append(temp)
                   self.coord_map.add((temp.beg,temp.end))
 
-              #print((i,x))
               selected_copy.remove((i,x))
             
-        self.charcter_evaluator.remove_modifers_after_play()
+        
         return result
 
   
-    """
-    def clean_words(self,words:Play):
-      i = 0
-      while i < len(words.chains):
-        if len(words.chains[i].characters) == 1:
-            words.chains.pop(i)
-            #self.coord_map.remove((words.chains[i].beg,words.chains[i].end))
-        else:
-            i+=1 
-      return words
-    """
+    
+    def clean_word_map_of_invalid_play(self,words:Play)->None:
+      self.charcter_evaluator.invalid_play()
+
+      for i in words.chains:
+          self.coord_map.remove((i.beg,i.end))
+
+    
 
     def evaluate_play(self,selected_copy:set[Slot])->Play:
         a,b = selected_copy.pop(),selected_copy.pop()

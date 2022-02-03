@@ -2,8 +2,6 @@ import enum
 from random import sample
 
 
-
-
 class Character(enum.Enum): 
   BLANK=0
   A=1
@@ -44,28 +42,33 @@ class Bag():
     def grab_next(self)->Character:
         return self.dominos.pop_left()
 
-    
-    
+    def extend_bag(self,character_list:list):
+      while character_list: self.dominos.append(character_list.pop())
+      self.dominos = deque(sample(self.dominos,len(self.dominos)))
+      
+
 class deque(list):
-    def __getitem__(self,value):
-      raise TypeError("'deque object is not subscriptable")
+  def __getitem__(self,value):
+    raise TypeError("'deque object is not subscriptable")
+
+  def sort(self,value):
+    raise  AttributeError("'deque' object has no attribute 'sort'")
   
-    def sort(self,value):
-      raise  AttributeError("'deque' object has no attribute 'sort'")
-    
-    def append_Left(self,obj):
-      self.insert(0,obj)
+  def append_Left(self,obj):
+    self.insert(0,obj)
 
-    def pop_left(self):
-      return super().pop(0)
-    
-    def pop(self):
-      return super().pop(-1)
-    
-    def peek_left(self):
-      return super().__getitem__(0)
+  def pop_left(self):
+    return super().pop(0)
+  
+  def pop(self):
+    return super().pop(-1)
+  
+  def peek_left(self):
+    return super().__getitem__(0)
 
-    def peek(self):
-      return super().__getitem__(-1)
+  def peek(self):
+    return super().__getitem__(-1)
+
+  
 
    
