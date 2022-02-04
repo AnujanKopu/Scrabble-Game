@@ -1,15 +1,17 @@
+import imp
 from arcade import SpriteList
+from board import Play
+from dataclasses import dataclass,field
 
 
+@dataclass
 class Player():
-    def __init__(self,name:str,tiles:SpriteList):
-        self.name:str = name
-        self.sprites:SpriteList = tiles
-        self.points:int =0
-        self.words:list = []
-        
+    name:str
+    sprites: SpriteList
+    points:int = field(default_factory=0)
+    words:list[Play] = field(default_factory=[])
 
-    def __hash__(self):
-        return hash(self.name)
+    #def __hash__(self):
+        #return hash(self.name)
 
 

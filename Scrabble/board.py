@@ -34,7 +34,7 @@ class Word():
   def __init__(self,col:int,row:int):
     self.beg:Slot = Slot(col,row)
     self.end:Slot = Slot(col,row)
-    self.characters:list[str] = []
+    self.characters:list[Character] = []
     self.value:int = 0
     self.word_amp:int = 1
 

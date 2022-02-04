@@ -11,7 +11,7 @@ from board import (
 from config import *
 from cycler import MyCycler
 from player import Player
-
+from stats import GameStats, is_connected_to_db,save_stats,make_query
 
 from abc import (
     ABC,
@@ -48,6 +48,8 @@ from pyglet.event import EVENT_UNHANDLED,EVENT_HANDLED
 
 
 
+
+
 KEY_C,KEY_P,KEY_S = 99,112,115
 ACTIVE,UNACTIVE = True,False
 
@@ -62,8 +64,8 @@ class GameState(IntEnum):
 
 
 class UIWidgets(NamedTuple):
+    reg_widgets: Optional[list[UIWidget]]
     change_state_buttons: Optional[list[tuple[UIFlatButton,int]]]  
-    reg_widgets: Optional[list[UIWidget]] = [] 
     exit_button: Optional[UIFlatButton] = None
 
 
@@ -348,8 +350,18 @@ class GameMenu(Menu):
         self.event_center:bool = ACTIVE
         self.event_reset:bool = False
         self.event_end_game:bool = False
-        
+        if is_connected_to_db():
+            self.game_stats:GameStats = GameStats(self.players)
+        else:
+            def set_controls_back(_):
+                self.p = self.s = ACTIVE
+                self.move_freeze = UNACTIVE
 
+            self.game_stats = None
+            self.p = self.s = UNACTIVE
+            self.move_freeze = ACTIVE
+            self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Connection to DB failed. Stats will not be Saved',callback=set_controls_back))
+     
     def draw(self)->None:
       self.draw_gameboard()
 
@@ -387,7 +399,9 @@ class GameMenu(Menu):
             self.event_center = UNACTIVE
             self.screenoffset.x,self.screenoffset.y = 0,0
             return ('center',) 
-        elif self.event_end_game is True: return ('change_state',4,self.get_next_stage_info())
+        elif self.event_end_game is True: 
+            if not self.game_stats is None: save_stats(self.game_stats)
+            return ('change_state',4,self.get_next_stage_info())
             
 
     
@@ -395,10 +409,13 @@ class GameMenu(Menu):
     def on_key_press(self, symbol: int, modifiers: int)->None:
         if self.p is ACTIVE and symbol == KEY_P:
             self.finalize_play()  
+            if not self.game_stats is None: self.game_stats.num_of_plays += 1
         if self.s is ACTIVE and symbol == KEY_S:
             self.shuffle()
-        elif self.c is ACTIVE and symbol == KEY_C:
+            if not self.game_stats is None:self.game_stats.num_of_shuffles += 1
+        elif self.c is ACTIVE and symbol == KEY_C: 
             self.challenge()
+            if not self.game_stats is None: self.game_stats.num_of_challenges += 1
             pass
 
     def on_mouse_drag(self, x: float, y: float, dx: float, dy: float, button: int, modifiers: int)->int:
@@ -844,6 +861,34 @@ class SettingsMenu(ToBeImplementedMenu):
 
 class StatsMenu(ToBeImplementedMenu):
     pass
+
+
+class RealStatsMenu(Menu):
+    box_x:str = 'top'
+    box_y:str = 'top'
+    state:IntEnum = GameState(4)
+    background_colour: arcade.color = arcade.color.ORANGE
+
+
+    def __init__(self):
+        self.stored_data = make_query('default')
+        self.top = UIBoxLayout()
+        
+
+
+    def draw(self):
+        pass
+
+    def get_ui_widgets(self) -> UIWidgets:
+        query = UIInputText(text="INPUT DATE: YYYY/MM/DD",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/35))
+        self.query = query.text
+        query.with_space_around(bg_color=arcade.color.WHITE)
+        query.with_space_around(bottom=SCREEN_HEIGHT//10)
+        return UIWidgets(reg_widgets=[query,self.top],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0))
+
+        
+    
+
 
 
 
