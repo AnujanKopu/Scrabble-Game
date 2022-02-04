@@ -209,6 +209,10 @@ class SetupMenu1(Menu):
 
     def __init__(self):
         self.player_count: int = 2
+        self.points_to_win:int = 100
+        self.word_stats:bool = True
+        self.action_stats:bool = True
+
    
     def draw(self):
         pass
@@ -218,7 +222,7 @@ class SetupMenu1(Menu):
         #Number of players 
         #only top center for now if more options top left
         top_left = UIBoxLayout()
-        top_left.add(UILabel(text="Choose Number of Players",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/60),bold=True))
+        top_left.add(UILabel(text="Num of Players",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/60),bold=True))
 
         count_lbl = UILabel(text="   2   ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/50),bold=True)
 
@@ -230,31 +234,93 @@ class SetupMenu1(Menu):
         add_btn = UIFlatButton(text=" + ", width=SCREEN_WIDTH//10)
         sub_btn = UIFlatButton(text=" - ", width=SCREEN_WIDTH//10)
 
-        def add():
+        def add1():
             count_lbl.text = ("   "+str(int(count_lbl.text)+1)+"   ") if int(count_lbl.text) < 4 else "   4   "
             self.player_count = count_lbl.text
-        def sub():
+        def sub1():
             count_lbl.text = ("   "+str(int(count_lbl.text)-1)+"   ") if int(count_lbl.text) > 2 else "   2   "
             self.player_count = count_lbl.text
 
-        add_btn.on_click = lambda event:add()
-        sub_btn.on_click = lambda event:sub()
+        add_btn.on_click = lambda event:add1()
+        sub_btn.on_click = lambda event:sub1()
 
         top_left_bottom.add(add_btn)
         top_left_bottom.add(sub_btn)
 
         top_left.add(top_left_bottom)
 
-        #count_lbl2 = UILabel(text="   50   ",font_name=('Open Sans',),font_size =SCREEN_WIDTH//50,bold=True)
-        #self.points_to_win = count_lbl2.text 
 
 
 
 
+        top_middle = UIBoxLayout()
+        top_middle.add(UILabel(text="Points to Win Game",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/60),bold=True))
+        count_lbl2 = UILabel(text="   100   ",font_name=('Open Sans',),font_size =SCREEN_WIDTH//50,bold=True)
+        self.points_to_win = count_lbl2.text 
+        top_middle.add(count_lbl2)
+        top_middle_bottom = UIBoxLayout(vertical=False)
+        add2_btn = UIFlatButton(text=" + ", width=SCREEN_WIDTH//10)
+        sub2_btn = UIFlatButton(text=" - ", width=SCREEN_WIDTH//10)
+
+        def add2():
+            count_lbl2.text = ("   "+str(int(count_lbl2.text)+25)+"   ") if int(count_lbl2.text) < 200 else "   200   "
+            self.points_to_win = count_lbl2.text
+        def sub2():
+            count_lbl2.text = ("   "+str(int(count_lbl2.text)-25)+"   ") if int(count_lbl2.text) > 50 else "   50   "
+            self.points_to_win = count_lbl2.text
+
+        add2_btn.on_click = lambda event:add2()
+        sub2_btn.on_click = lambda event:sub2()
+
+        top_middle_bottom.add(add2_btn)
+        top_middle_bottom.add(sub2_btn)
+
+        top_middle.add(top_middle_bottom)
+        top_middle.with_space_around(left=SCREEN_WIDTH/7,right=SCREEN_WIDTH/7)
+
+
+        top_right = UIBoxLayout()
+        top_right.add(UILabel(text="Stats to Save?",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/60),bold=True))
+        
+        word_lbl =  UILabel(text=" Words:Yes ",font_name=('Open Sans',),font_size =SCREEN_WIDTH//75,bold=True)
+        action_lbl = UILabel(text=" Actions:Yes ",font_name=('Open Sans',),font_size =SCREEN_WIDTH//75,bold=True)
+
+        def word_change():
+            word_lbl.text = " Words:No " if self.word_stats else  " Words:Yes "
+            self.word_stats = not self.word_stats
+        
+        def action_change():
+            action_lbl.text = " Actions:No " if self.action_stats else  " Actions:Yes "
+            self.action_stats = not self.action_stats
+
+        
+        word_btn = UIFlatButton(text=" x ", width=SCREEN_WIDTH//10)
+        action_btn = UIFlatButton(text=" x ", width=SCREEN_WIDTH//10)
+        word_btn.on_click = lambda event: word_change()
+        action_btn.on_click = lambda event: action_change()
+
+        top_right_horizontal = UIBoxLayout(vertical=False)
+        top_right_left = UIBoxLayout()
+        top_right_right = UIBoxLayout()
+       
+
+
+        top_right_left.add(word_lbl)
+        top_right_right.add(action_lbl)
+        top_right_left.add(word_btn)
+        top_right_right.add(action_btn)
+
+
+        top_right_horizontal.add(top_right_left)
+        top_right_horizontal.add(top_right_right)
+        top_right.add(top_right_horizontal.with_space_around(top=SCREEN_HEIGHT/50))
+        
 
         top = UIBoxLayout(vertical=False)
         top.add(top_left)
-        top = top.with_space_around(bottom=SCREEN_HEIGHT//10)
+        top.add(top_middle)
+        top.add(top_right)
+        top = top.with_space_around(bottom=SCREEN_HEIGHT/10)
 
         next_btn = UIFlatButton(text="Next >", width=SCREEN_WIDTH//5)
         
@@ -263,7 +329,7 @@ class SetupMenu1(Menu):
     
 
     def get_next_stage_info(self):
-        return (int([value for value in self.player_count if value != " "][0]),)
+        return (int([value for value in self.player_count if value != " "][0]),int([value for value in self.points_to_win if value != " "][0]),self.word_stats,self.action_stats)
 
 
 class SetupMenu2(Menu):
@@ -273,9 +339,10 @@ class SetupMenu2(Menu):
     background_colour: arcade.color = arcade.color.AMAZON
 
 
-    def __init__(self,numberofplayers:int ):
+    def __init__(self,numberofplayers:int,*extra_info):
         self.num_of_players:int = numberofplayers
         self.player_names:list[str] = []
+        self.extra_info = extra_info
         
 
     def draw(self):
@@ -309,7 +376,7 @@ class SetupMenu2(Menu):
         return 0 
 
     def get_next_stage_info(self):
-        return [i.text for i in self.player_names]
+        return (self.extra_info[0],self.extra_info[1],self.extra_info[2],[i.text for i in self.player_names])
         #return [Player(self.player_names[j].text,self.create_sprite_list(j,len(self.player_names))) for j in range(len(self.player_names))]
 
 
@@ -321,12 +388,13 @@ class GameMenu(Menu):
 
   
 
-    def __init__(self,*players:list[str]):
+    def __init__(self,points_to_win:int,if_word_stats:bool,if_action_stats:bool,players:list[str]):
         self.bag:Bag = Bag(1 if len(players) != 4 else 2)
         self.board:Board = Board()  
         self.hand:CurrentHand = CurrentHand()
         self.screenoffset:Coords = Coords()
-        self.points_to_win = 40
+        self.points_to_win:int = points_to_win
+        
 
         self.players:list[Player] = [Player(players[j],self.create_sprite_list(j,len(players))) for j in range(len(players))] 
         self.cycler:MyCycler =  MyCycler(self.players)
@@ -361,7 +429,11 @@ class GameMenu(Menu):
             self.p = self.s = UNACTIVE
             self.move_freeze = ACTIVE
             self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Connection to DB failed. Stats will not be Saved',callback=set_controls_back))
-     
+        
+        self.word_stats:bool = if_word_stats
+        self.action_stats:bool = if_action_stats
+
+
     def draw(self)->None:
       self.draw_gameboard()
 
@@ -400,7 +472,7 @@ class GameMenu(Menu):
             self.screenoffset.x,self.screenoffset.y = 0,0
             return ('center',) 
         elif self.event_end_game is True: 
-            if not self.game_stats is None: save_stats(self.game_stats)
+            if not self.game_stats is None: save_stats(self.game_stats,self.word_stats,self.action_stats)
             return ('change_state',4,self.get_next_stage_info())
             
 
@@ -864,27 +936,74 @@ class StatsMenu(ToBeImplementedMenu):
 
 
 class RealStatsMenu(Menu):
-    box_x:str = 'top'
+    box_x:str = 'center'
     box_y:str = 'top'
     state:IntEnum = GameState(4)
     background_colour: arcade.color = arcade.color.ORANGE
 
 
     def __init__(self):
-        self.stored_data = make_query('default')
-        self.top = UIBoxLayout()
+        self.stored_data:list[list[dict]] = []
+        self.top:UIBoxLayout = UIBoxLayout()
+        self.middle = UIBoxLayout()
+        self.back:UIBoxLayout = UIBoxLayout() #store grid data when in other frame
+        self.frame = UIBoxLayout()
+        self.frame.add(self.top)
         
 
 
     def draw(self):
         pass
 
+    def search(self,query='default'):
+        self.stored_data = make_query(query)
+        self.middle.clear()  
+        for game in self.stored_data:
+            text = ''
+            for player in game['players']:
+                text += player['name'] + ' vs '
+            text = text[:-3] + "- " + game['dt'].strftime("%m/%d/%Y, %H:%M:%S")
+            box = UIBoxLayout(vertical=False)
+            label = UILabel(width=SCREEN_WIDTH*(4/5),height=SCREEN_HEIGHT//7,text=text,bold=True).with_space_around(bg_color=arcade.color.DARK_BLUE)
+            view_btn = UIFlatButton(width=SCREEN_WIDTH*(1/5),height=SCREEN_HEIGHT//7,text='View')
+            view_btn.on_click = lambda event,gme=game: self.find_more_stats(gme)
+            box.add(label)
+            box.add(view_btn)
+            self.middle.add(box)
+
+    def find_more_stats(self,game):
+        self.frame.clear()
+        self.frame.add(self.back)
+        text = ''
+        for player in game['players']:
+            text += '_'*max((50-len(player['name']+ '-Stats'))//2,0) +player['name']+ '-Stats' +'_'*max((50-len(player['name']+ '-Stats'))//2,0) + '\n\n'
+            text += f'Main words: {["".join(i["main_word"]["characters"]) for i in player["words"]]}' + '\n\n'
+            text += f'Chain words: {["".join(i["characters"]) for j in player["words"] for i in j["chains"]]}' + '\n\n\n'
+        text += '_'*20 +'Game-Stats' +'_'*20 + '\n\n'
+        text += f"num_of_plays:{game['num_of_plays']}\nnum_of_shuffles{game['num_of_shuffles']}\nnum_of_challenges{game['num_of_challenges']}"
+        
+        text_area = UITextArea(width=(SCREEN_WIDTH*(2/3)),height=(SCREEN_HEIGHT*(2/3)),font_name=('Open Sans',),text=text,text_color=arcade.color.RED_DEVIL).with_space_around(bg_color=arcade.color.WHITE)
+        button = UIFlatButton(text='Back to Grid',width=(SCREEN_WIDTH*(2/3)),height=(SCREEN_HEIGHT//10))
+        button.on_click = lambda event: self.back.clear() or self.frame.clear() or self.frame.add(self.top)
+        self.back.add(text_area)
+        self.back.add(button)
+
     def get_ui_widgets(self) -> UIWidgets:
-        query = UIInputText(text="INPUT DATE: YYYY/MM/DD",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/35))
-        self.query = query.text
-        query.with_space_around(bg_color=arcade.color.WHITE)
-        query.with_space_around(bottom=SCREEN_HEIGHT//10)
-        return UIWidgets(reg_widgets=[query,self.top],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0))
+        query = MyInputText(width=SCREEN_WIDTH*(4/5),text="  INPUT DATE: YYYY/MM/DD  ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/35))
+        self.query = query
+        query = query.with_space_around(bg_color=arcade.color.WHITE)
+       
+        submit_btn = UIFlatButton(width=SCREEN_WIDTH*(1/5),text='Search')
+
+        submit_btn.on_click = lambda event: self.search(self.query.text)
+        submit_widgets = UIBoxLayout(vertical=False)
+        submit_widgets.add(query)
+        submit_widgets.add(submit_btn)
+        submit_widgets = submit_widgets.with_space_around(bottom=SCREEN_HEIGHT//10)
+        self.top.add(submit_widgets)
+        self.top.add(self.middle)
+
+        return UIWidgets(reg_widgets=[self.frame],change_state_buttons=[(UIFlatButton(text="Back to Menu", width=SCREEN_WIDTH/3),0)])
 
         
     
@@ -893,5 +1012,5 @@ class RealStatsMenu(Menu):
 
 
 
-Menus = (SelectionMenu,SetupMenu1,SetupMenu2,GameMenu,GameFinishedMenu,SettingsMenu,StatsMenu)
+Menus = (SelectionMenu,SetupMenu1,SetupMenu2,GameMenu,GameFinishedMenu,SettingsMenu,RealStatsMenu)
 

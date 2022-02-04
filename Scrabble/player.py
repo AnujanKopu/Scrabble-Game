@@ -8,8 +8,8 @@ from dataclasses import dataclass,field
 class Player():
     name:str
     sprites: SpriteList
-    points:int = field(default_factory=0)
-    words:list[Play] = field(default_factory=[])
+    points:int = 0
+    words:list[Play] = field(default_factory=list)
 
     #def __hash__(self):
         #return hash(self.name)

@@ -24,22 +24,35 @@ def is_connected_to_db() -> bool:
 @dataclass
 class GameStats():
     players:list[Player]
-    num_of_challenges:int = field(default_factory=0)
-    num_of_shuffles:int = field(default_factory=0)
-    num_of_plays:int = field(default_factory=0)
-    dt:datetime = field(default_factory=datetime.now())
+    num_of_challenges:int = 0
+    num_of_shuffles:int = 0
+    num_of_plays:int = 0
+    dt:datetime = datetime.now()
 
 
-def save_stats(game_stats:GameStats):
-    """
-    for i in game_stats.players:
-        for j in i.words:
-            j.main_word.characters = [i.name for i in j.main_word.characters]
-            for k in j.chains:
-                    k.characters = [i.name for i in k.characters]
-    """
-    
-    collection.insert_one(asdict(game_stats))
+
+        
+
+
+def save_stats(game_stats:GameStats,if_word_stats:bool,if_action_stats:bool):
+    if not (if_word_stats is False and if_action_stats is False):
+        for players in game_stats.players:
+            players.sprites = None
+            for i in range(len(players.words)):
+                players.words[i] = players.words[i].__dict__()
+        sdict = asdict(game_stats)
+
+        
+        for players in sdict['players']:
+            del players['sprites']
+
+        if if_word_stats is False: del sdict['players']
+        elif if_action_stats is False:
+            del sdict['num_of_plays']
+            del sdict['num_of_shuffles'] 
+            del sdict['num_of_challenges']
+
+        collection.insert_one(sdict)
 
 
 
@@ -69,10 +82,11 @@ def make_query(date_string:str):
           edt = datetime(year,month+1,1)
       else:
         raise InfoError("Invalid date: YYYY/MM/Optional[DD]")
-      found = list(collection.find({'tme':{"$gt":dt,"$lt":edt}}))
+      found = list(collection.find({'dt':{"$gt":dt,"$lt":edt}}))
       if len(found) > 0:
         for i in found:
           i['dt'] = i['dt'].astimezone(pytz.timezone('US/Eastern'))
+
       return  found
 
 

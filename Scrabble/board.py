@@ -41,6 +41,9 @@ class Word():
   def __str__(self):
       return "".join([i.name if i.name != "BLANK" else "_" for i in self.characters])
 
+  def __dict__(self):
+    return {'beg':(self.beg.col,self.beg.row),'end':(self.end.col,self.end.row),'characters':[i.name for i in self.characters],'value':self.value,'word_amp':self.word_amp}
+
 
 class Play(): 
 
@@ -50,6 +53,9 @@ class Play():
 
   def get_points(self) -> int:
     return self.main_word.value*self.main_word.word_amp + sum([i.value*i.word_amp for i in self.chains])
+
+  def __dict__(self):
+    return {'main_word':self.main_word.__dict__(),'chains':[i.__dict__() for i in self.chains],'play_points':self.get_points()}
 
 
 class Amplifier(enum.Enum):
