@@ -1,7 +1,7 @@
 import enchant 
 import PyDictionary 
 from PyDictionary import PyDictionary
-from time import time
+
 
 class WordChecker():
 
@@ -20,8 +20,8 @@ class WordChecker():
                         word = word.replace('_',chr(i))
                         break
                 else: return (False,word)
-                print(word)
-                return (True,word,self.py_dictionary.meaning(word))
+
+                return (True,word,self.py_dictionary.meaning(word,disable_errors=True))
             else:
                 for i in range(97,122):
                     for j in range(97,122):
@@ -31,10 +31,10 @@ class WordChecker():
                     if self._word_check(word):
                         break
                 else: return (False,word)
-                return (True,word,self.py_dictionary.meaning(word))
+                return (True,word,self.py_dictionary.meaning(word,disable_errors=True))
         else:   
             if self._word_check(word) is False: return (False,word)
-            else: return (True,word,self.py_dictionary.meaning(word))
+            else: return (True,word,self.py_dictionary.meaning(word,disable_errors=True))
 
     
     def _word_check(self,word):

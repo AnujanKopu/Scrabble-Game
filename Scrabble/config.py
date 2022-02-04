@@ -1,6 +1,6 @@
 from arcade import load_texture
 
-SCREEN_WIDTH = SCREEN_HEIGHT = 600  #Max 2600 x 2600 
+SCREEN_WIDTH = SCREEN_HEIGHT = 900  #Max 2600 x 2600 
 SCREEN_TITLE = "Scrabble"
 
 

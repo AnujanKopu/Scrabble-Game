@@ -5,7 +5,6 @@ from board import (
     CurrentHand,
     NonLinearWord,
     Slot,
-    Word,
     Play
 )
 from config import *
@@ -115,8 +114,6 @@ class Tile(arcade.Sprite):
         self.letter = letter
 
 
-
-
 class Menu(ABC):
     background_colour: arcade.color = arcade.color.VIOLET_BLUE#RED_DEVIL
     box_x: str = 'center'
@@ -208,8 +205,8 @@ class SetupMenu1(Menu):
 
 
     def __init__(self):
-        self.player_count: int = 2
-        self.points_to_win:int = 100
+        self.player_count:list[str] = 2
+        self.points_to_win:list[str] = 100
         self.word_stats:bool = True
         self.action_stats:bool = True
 
@@ -329,7 +326,7 @@ class SetupMenu1(Menu):
     
 
     def get_next_stage_info(self):
-        return (int([value for value in self.player_count if value != " "][0]),int([value for value in self.points_to_win if value != " "][0]),self.word_stats,self.action_stats)
+        return (int([value for value in self.player_count if value != " "][0]),int("".join([value for value in self.points_to_win if value.isdigit()])),self.word_stats,self.action_stats)
 
 
 class SetupMenu2(Menu):
@@ -393,6 +390,7 @@ class GameMenu(Menu):
         self.board:Board = Board()  
         self.hand:CurrentHand = CurrentHand()
         self.screenoffset:Coords = Coords()
+        print(points_to_win)
         self.points_to_win:int = points_to_win
         
 

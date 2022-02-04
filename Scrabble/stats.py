@@ -1,18 +1,18 @@
 from player import Player
 from datetime import date, datetime
 import pytz
-from dataclasses import dataclass,field,asdict
+from dataclasses import dataclass,asdict
 from os import environ
 
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure,ConfigurationError
 
 is_on = True
 try:
+    from pymongo import MongoClient
     cluster = MongoClient(environ['MONGOKEY'])
     db = cluster['ScrabbleGames']
     collection = db['Games']
-except ConnectionFailure as e:
+except (ConnectionFailure,ConfigurationError) as e:
     print(e)
     is_on = False
 

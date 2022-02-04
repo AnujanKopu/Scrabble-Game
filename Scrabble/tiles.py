@@ -1,3 +1,5 @@
+
+
 def make_letters(resize_val):
   from PIL import Image
   from PIL import ImageFont
@@ -29,4 +31,16 @@ def make_letters(resize_val):
   make_tiles(" "," ",resize_val)
   for char in letters:
     make_tiles(char[0],str(char[1]),resize_val)
-    
+
+
+"""
+def make_letters(resize_val):
+  from PIL import Image
+  from os import listdir 
+  for file in listdir('./Scrabble/tiles'):
+    if file.endswith('.png'):
+      img = Image.open(f"./Scrabble/tiles/{file}").resize((resize_val,resize_val))
+      img.save(f"./Scrabble/tiles/{file}")
+
+"""
+
