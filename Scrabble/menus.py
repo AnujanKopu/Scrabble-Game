@@ -390,7 +390,6 @@ class GameMenu(Menu):
         self.board:Board = Board()  
         self.hand:CurrentHand = CurrentHand()
         self.screenoffset:Coords = Coords()
-        print(points_to_win)
         self.points_to_win:int = points_to_win
         
 
@@ -973,12 +972,13 @@ class RealStatsMenu(Menu):
         self.frame.clear()
         self.frame.add(self.back)
         text = ''
-        for player in game['players']:
-            text += '_'*max((50-len(player['name']+ '-Stats'))//2,0) +player['name']+ '-Stats' +'_'*max((50-len(player['name']+ '-Stats'))//2,0) + '\n\n'
-            text += f'Main words: {["".join(i["main_word"]["characters"]) for i in player["words"]]}' + '\n\n'
-            text += f'Chain words: {["".join(i["characters"]) for j in player["words"] for i in j["chains"]]}' + '\n\n\n'
-        text += '_'*20 +'Game-Stats' +'_'*20 + '\n\n'
-        text += f"num_of_plays:{game['num_of_plays']}\nnum_of_shuffles{game['num_of_shuffles']}\nnum_of_challenges{game['num_of_challenges']}"
+        if not game.get('players',None) is None: 
+            for player in game['players']:
+                text += '_'*max((50-len(player['name']+ '-Stats'))//2,0) +player['name']+ '-Stats' +'_'*max((50-len(player['name']+ '-Stats'))//2,0) + '\n\n'
+                text += f'Main words: {["".join(i["main_word"]["characters"]) for i in player["words"]]}' + '\n\n'
+                text += f'Chain words: {["".join(i["characters"]) for j in player["words"] for i in j["chains"]]}' + '\n\n\n'
+            text += '_'*20 +'Game-Stats' +'_'*20 + '\n\n'
+        text += f"num_of_plays:{game.get('num_of_plays',None)}\nnum_of_shuffles{game.get('num_of_shuffles',None)}\nnum_of_challenges{game.get('num_of_challenges',None)}"
         
         text_area = UITextArea(width=(SCREEN_WIDTH*(2/3)),height=(SCREEN_HEIGHT*(2/3)),font_name=('Open Sans',),text=text,text_color=arcade.color.RED_DEVIL).with_space_around(bg_color=arcade.color.WHITE)
         button = UIFlatButton(text='Back to Grid',width=(SCREEN_WIDTH*(2/3)),height=(SCREEN_HEIGHT//10))
