@@ -14,7 +14,7 @@ Per player turn, a player can:
 Once a player submits their play with P.  
 Other players are able to challenge the other player's play in the 8 second interval given.  
 
-First to player to reach the [choosen] amount points to win will win the game. Points are assessed every player turn submission.  
+First to player to reach the [chosen] amount points to win will win the game. Points are assessed every player turn submission.  
 
 # Extra:  
 Window is not resizeable; however, you can change the static size in config.py.  Warning: TIle images can become blury if window size too small and tile may not be able to be resized to window sizes > 2600 x 2600.
