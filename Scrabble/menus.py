@@ -209,6 +209,9 @@ class SetupMenu1(Menu):
         self.points_to_win:list[str] = 100
         self.word_stats:bool = True
         self.action_stats:bool = True
+        self.add_npc:bool = False
+        self.npc_count:int = 1
+        self.npc_difficulty:int = 1
 
    
     def draw(self):
@@ -313,20 +316,86 @@ class SetupMenu1(Menu):
         top_right.add(top_right_horizontal.with_space_around(top=SCREEN_HEIGHT/50))
         
 
+        npc_section = UIBoxLayout()
+        npc_section.add(UILabel(text="NPC Opponents",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/60),bold=True))
+        
+        npc_toggle_lbl = UILabel(text=" Add NPCs:No ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/75),bold=True)
+        npc_toggle_btn = UIFlatButton(text=" x ", width=SCREEN_WIDTH//10)
+        
+        def toggle_npc():
+            self.add_npc = not self.add_npc
+            npc_toggle_lbl.text = " Add NPCs:Yes " if self.add_npc else " Add NPCs:No "
+        
+        npc_toggle_btn.on_click = lambda event: toggle_npc()
+        
+        npc_toggle_box = UIBoxLayout(vertical=False)
+        npc_toggle_box.add(npc_toggle_lbl)
+        npc_toggle_box.add(npc_toggle_btn)
+        npc_section.add(npc_toggle_box)
+        
+        npc_count_lbl = UILabel(text="   1   ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/75),bold=True)
+        npc_count_add = UIFlatButton(text=" + ", width=SCREEN_WIDTH//15)
+        npc_count_sub = UIFlatButton(text=" - ", width=SCREEN_WIDTH//15)
+        
+        def npc_count_add_func():
+            self.npc_count = min(3, self.npc_count + 1)
+            npc_count_lbl.text = f"   {self.npc_count}   "
+        
+        def npc_count_sub_func():
+            self.npc_count = max(1, self.npc_count - 1)
+            npc_count_lbl.text = f"   {self.npc_count}   "
+        
+        npc_count_add.on_click = lambda event: npc_count_add_func()
+        npc_count_sub.on_click = lambda event: npc_count_sub_func()
+        
+        npc_count_box = UIBoxLayout(vertical=False)
+        npc_count_box.add(UILabel(text="Count:",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/75),bold=True))
+        npc_count_box.add(npc_count_sub)
+        npc_count_box.add(npc_count_lbl)
+        npc_count_box.add(npc_count_add)
+        npc_section.add(npc_count_box)
+        
+        difficulty_lbl = UILabel(text=" Difficulty:Medium ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/75),bold=True)
+        difficulty_btn = UIFlatButton(text="Change", width=SCREEN_WIDTH//10)
+        
+        def change_difficulty():
+            self.npc_difficulty = (self.npc_difficulty + 1) % 3
+            if self.npc_difficulty == 0:
+                difficulty_lbl.text = " Difficulty:Easy "
+            elif self.npc_difficulty == 1:
+                difficulty_lbl.text = " Difficulty:Medium "
+            else:
+                difficulty_lbl.text = " Difficulty:Hard "
+        
+        difficulty_btn.on_click = lambda event: change_difficulty()
+        
+        difficulty_box = UIBoxLayout(vertical=False)
+        difficulty_box.add(difficulty_lbl)
+        difficulty_box.add(difficulty_btn)
+        npc_section.add(difficulty_box)
+        
         top = UIBoxLayout(vertical=False)
         top.add(top_left)
         top.add(top_middle)
         top.add(top_right)
-        top = top.with_space_around(bottom=SCREEN_HEIGHT/10)
+        top = top.with_space_around(bottom=SCREEN_HEIGHT/20)
+        
+        middle = UIBoxLayout(vertical=False)
+        middle.add(npc_section)
+        middle = middle.with_space_around(bottom=SCREEN_HEIGHT/10)
 
         next_btn = UIFlatButton(text="Next >", width=SCREEN_WIDTH//5)
         
 
-        return UIWidgets(reg_widgets=[top],change_state_buttons=[(next_btn,2)])
+        return UIWidgets(reg_widgets=[top, middle],change_state_buttons=[(next_btn,2)])
     
 
     def get_next_stage_info(self):
-        return (int([value for value in self.player_count if value != " "][0]),int("".join([value for value in self.points_to_win if value.isdigit()])),self.word_stats,self.action_stats)
+        player_count = int([value for value in self.player_count if value != " "][0])
+        if player_count == 1 and not self.add_npc:
+            self.add_npc = True
+            self.npc_count = 1
+        return (player_count,int("".join([value for value in self.points_to_win if value.isdigit()])),self.word_stats,self.action_stats,self.add_npc,self.npc_count,self.npc_difficulty)
 
 
 class SetupMenu2(Menu):
@@ -340,6 +409,10 @@ class SetupMenu2(Menu):
         self.num_of_players:int = numberofplayers
         self.player_names:list[str] = []
         self.extra_info = extra_info
+        self.add_npc = extra_info[3] if len(extra_info) > 3 else False
+        self.npc_count = extra_info[4] if len(extra_info) > 4 else 0
+        self.npc_difficulty = extra_info[5] if len(extra_info) > 5 else 1
+        self.npc_names = []
         
 
     def draw(self):
@@ -359,7 +432,17 @@ class SetupMenu2(Menu):
             name_input = name_input.with_space_around(bg_color=arcade.color.WHITE)
             box.add(name_input)
             rows[-1].add(box.with_space_around(left=SCREEN_WIDTH//10,bottom=SCREEN_WIDTH//10) if i%2 == 1 else box.with_space_around(bottom=SCREEN_WIDTH//10))
-            
+        
+        if self.add_npc:
+            for i in range(self.npc_count):
+                if len(rows[-1].children) % 2 == 0:
+                    rows.append(UIBoxLayout(vertical=False))
+                box = UIBoxLayout()
+                npc_name = f"NPC-{i+1}"
+                self.npc_names.append(npc_name)
+                name_label = UILabel(text=f"        {npc_name} (AI)       ",font_name=('Open Sans',),font_size=(SCREEN_WIDTH/50),bold=True,width=SCREEN_WIDTH//3,text_color=arcade.color.YELLOW)
+                box.add(name_label)
+                rows[-1].add(box.with_space_around(left=SCREEN_WIDTH//10,bottom=SCREEN_WIDTH//10) if len(rows[-1].children) % 2 == 1 else box.with_space_around(bottom=SCREEN_WIDTH//10))
             
         names_button = UIFlatButton(text="Start Game", width=SCREEN_WIDTH//5)
 
@@ -373,8 +456,14 @@ class SetupMenu2(Menu):
         return 0 
 
     def get_next_stage_info(self):
-        return (self.extra_info[0],self.extra_info[1],self.extra_info[2],[i.text for i in self.player_names])
-        #return [Player(self.player_names[j].text,self.create_sprite_list(j,len(self.player_names))) for j in range(len(self.player_names))]
+        player_list = [i.text for i in self.player_names]
+        if self.add_npc:
+            player_list.extend(self.npc_names)
+        npc_info = {}
+        if self.add_npc:
+            for i, name in enumerate(self.npc_names):
+                npc_info[name] = self.npc_difficulty
+        return (self.extra_info[0],self.extra_info[1],self.extra_info[2],player_list,npc_info)
 
 
 class GameMenu(Menu):
@@ -385,15 +474,29 @@ class GameMenu(Menu):
 
   
 
-    def __init__(self,points_to_win:int,if_word_stats:bool,if_action_stats:bool,players:list[str]):
+    def __init__(self,points_to_win:int,if_word_stats:bool,if_action_stats:bool,players:list[str],npc_info:dict=None):
+        if npc_info is None:
+            npc_info = {}
         self.bag:Bag = Bag(1 if len(players) != 4 else 2)
         self.board:Board = Board()  
         self.hand:CurrentHand = CurrentHand()
         self.screenoffset:Coords = Coords()
         self.points_to_win:int = points_to_win
         
-
-        self.players:list[Player] = [Player(players[j],self.create_sprite_list(j,len(players))) for j in range(len(players))] 
+        from gaddag import GADDAG
+        from npc_ai import NPCPlayer
+        
+        self.gaddag = GADDAG()
+        self.gaddag.build_from_file('./Scrabble/twl_words.txt')
+        
+        self.players:list[Player] = []
+        for j in range(len(players)):
+            player = Player(players[j],self.create_sprite_list(j,len(players)))
+            if players[j] in npc_info:
+                player.is_npc = True
+                player.difficulty = npc_info[players[j]]
+            self.players.append(player)
+        
         self.cycler:MyCycler =  MyCycler(self.players)
         self.current_player:int = self.cycler.get_first_player(self.players)
 
@@ -429,6 +532,8 @@ class GameMenu(Menu):
         
         self.word_stats:bool = if_word_stats
         self.action_stats:bool = if_action_stats
+        self.npc_processing:bool = False
+        self.npc_delay_timer:float = 1.5
 
 
     def draw(self)->None:
@@ -455,6 +560,14 @@ class GameMenu(Menu):
         return (self.players[self.current_player].name,self.players[self.current_player].points)
 
     def on_update(self,delta_time:float):
+        if self.players[self.current_player].is_npc and not self.npc_processing and not self.challenging and not self.event_reset and not self.shuffling:
+            if self.npc_delay_timer > 0:
+                self.npc_delay_timer -= delta_time
+            else:
+                self.execute_npc_move()
+                self.npc_delay_timer = 1.5
+            return
+        
         if self.challenging  is False and self.event_reset is True: 
             self.event_reset = False
             if self.words is None: return 
@@ -563,6 +676,7 @@ class GameMenu(Menu):
 
                 self.clean_gameboard()
                 self.current_player = self.cycler.next_player()
+                self.npc_delay_timer = 1.5
 
                 self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}',callback=set_controls_back))
                 
@@ -638,6 +752,7 @@ class GameMenu(Menu):
         if was_correct is True:
             self.clean_gameboard()
             self.current_player = self.cycler.next_player()
+            self.npc_delay_timer = 1.5
             self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}',callback=set_controls_back))
             
             self.board.clean_word_map_of_invalid_play(self.words)
@@ -873,8 +988,86 @@ class GameMenu(Menu):
             return
 
         self.current_player = self.cycler.next_player()
+        self.npc_delay_timer = 1.5
         self.center.add(UIMessageBox(width=SCREEN_WIDTH/2.25,height=SCREEN_HEIGHT/2.25,message_text=f'Turn has ended! Next Player is {self.players[self.current_player].name}',callback=set_controls_back))
 
+    def execute_npc_move(self):
+        from npc_ai import MoveGenerator, MoveEvaluator, NPCPlayer
+        
+        self.npc_processing = True
+        self.move_freeze = ACTIVE
+        self.p = self.s = UNACTIVE
+        
+        npc_player = self.players[self.current_player]
+        rack = [tile.letter for tile in npc_player.sprites]
+        
+        npc_ai = NPCPlayer(npc_player.name, npc_player.difficulty, self.gaddag)
+        npc_ai.initialize_for_board(self.board)
+        
+        move = npc_ai.select_move(rack)
+        
+        if move is None:
+            self.shuffle_npc_tiles()
+            self.npc_processing = False
+            return
+        
+        self.hand.selected.clear()
+        
+        word_chars = list(move.word.upper())
+        tiles_used_list = move.tiles_used.copy()
+        tile_index = 0
+        
+        for i, char in enumerate(word_chars):
+            if move.direction == HORIZONTAL:
+                col, row = move.start_col, move.start_row + i
+            else:
+                col, row = move.start_col + i, move.start_row
+            
+            if self.board.board[col][row] is not None:
+                continue
+            
+            if tile_index < len(tiles_used_list):
+                tile_char = tiles_used_list[tile_index]
+                tile_to_place = None
+                for tile in npc_player.sprites:
+                    if tile.letter == tile_char:
+                        tile_to_place = tile
+                        break
+                
+                if tile_to_place:
+                    col_coord, row_coord = self.get_coords_of_slot(col, row)
+                    tile_to_place.center_x = col_coord
+                    tile_to_place.center_y = row_coord
+                    tile_to_place.angle = 0
+                    self.board.place_on_board(col, row, tile_to_place.letter)
+                    self.hand.selected.add(Slot(col, row))
+                    tile_index += 1
+        
+        if len(self.hand.selected) >= 2:
+            self.finalize_play()
+        else:
+            self.shuffle_npc_tiles()
+        
+        self.npc_processing = False
+    
+    def shuffle_npc_tiles(self):
+        npc_player = self.players[self.current_player]
+        tiles_to_return = [tile.letter for tile in npc_player.sprites]
+        self.bag.extend_bag(tiles_to_return)
+        
+        for tile in list(npc_player.sprites):
+            npc_player.sprites.remove(tile)
+        
+        for i in range(min(7, len(self.bag.dominos))):
+            orientation = self.get_tile_orientation(self.current_player, i, len(self.players))
+            origin = Coords(orientation['center_x'], orientation['center_y'])
+            new_tile = self.make_sprite(origin)
+            npc_player.sprites.append(new_tile)
+        
+        self.current_player = self.cycler.next_player()
+        self.npc_delay_timer = 1.5
+        self.move_freeze = UNACTIVE
+        self.p = self.s = ACTIVE
 
     
     @staticmethod

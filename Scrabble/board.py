@@ -363,5 +363,35 @@ class Board():
         if len(selected_copy) != 0:raise NonLinearWord
         return words
 
+    def get_anchor_squares(self)->list[tuple[int,int]]:
+        anchors = []
+        for col in range(15):
+            for row in range(15):
+                if self.board[col][row] is None:
+                    if self.validate_slot(col, row, False):
+                        anchors.append((col, row))
+        return anchors
+
+    def get_cross_checks(self, col:int, row:int, direction:bool)->set[str]:
+        valid_letters = set()
+        if direction == HORIZONTAL:
+            if col > 0 and self.board[col-1][row] is not None:
+                return valid_letters
+            if col < 14 and self.board[col+1][row] is not None:
+                return valid_letters
+        else:
+            if row > 0 and self.board[col][row-1] is not None:
+                return valid_letters
+            if row < 14 and self.board[col][row+1] is not None:
+                return valid_letters
+        return valid_letters
+
+    def simulate_placement(self, col:int, row:int, character:Character)->bool:
+        if col < 0 or col >= 15 or row < 0 or row >= 15:
+            return False
+        if self.board[col][row] is not None:
+            return False
+        return self.validate_slot(col, row, False)
+
 
 

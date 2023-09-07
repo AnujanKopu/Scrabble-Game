@@ -10,6 +10,8 @@ class Player():
     sprites: SpriteList
     points:int = 0
     words:list[Play] = field(default_factory=list)
+    is_npc:bool = False
+    difficulty:int = 1
 
     #def __hash__(self):
         #return hash(self.name)
